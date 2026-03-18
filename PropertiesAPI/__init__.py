@@ -3,14 +3,23 @@ from azure.data.tables import TableServiceClient
 import os
 import json
 import datetime
+import logging
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     method = req.method
 
     try:
         conn_str = os.getenv("AzureWebJobsStorage")
+        if not conn_str:
+            return func.HttpResponse("❌ AzureWebJobsStorage not configured.", status_code=500)
+
         table_service = TableServiceClient.from_connection_string(conn_str)
-        table_client = table_service.get_table_client("Properties")
+        table_name = "Properties"
+        table_client = table_service.get_table_client(table_name)
+        try:
+            table_service.create_table(table_name)
+        except Exception:
+            pass
 
         # ----------------------------
         # CREATE (POST)
@@ -92,4 +101,5 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(f"❌ Method {method} not supported.", status_code=405)
 
     except Exception as e:
+        logging.error(f"PropertiesAPI error: {e}")
         return func.HttpResponse(f"❌ Failed: {e}", status_code=500)
