@@ -10,12 +10,16 @@ import json
 
 TABLE_NAME = "Expenses"
 BLOB_CONTAINER = "bills"
+TRANSACTION_TABLE_NAME = "Transactions"
+TRANSACTION_STORAGE_CONN_ENV = "ANAVICHEAG_STORAGE_CONNECTION_STRING"
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
         conn_str = os.getenv("AzureWebJobsStorage")
         if not conn_str:
             return func.HttpResponse("Missing storage connection string", status_code=500)
+
+        transaction_conn_str = os.getenv(TRANSACTION_STORAGE_CONN_ENV)
 
         table_service = TableServiceClient.from_connection_string(conn_str)
         table_client = table_service.get_table_client(TABLE_NAME)
@@ -91,6 +95,42 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         }
 
         table_client.create_entity(entity=row)
+
+        if transaction_conn_str:
+            transaction_table_service = TableServiceClient.from_connection_string(transaction_conn_str)
+            transaction_table_client = transaction_table_service.get_table_client(TRANSACTION_TABLE_NAME)
+            try:
+                transaction_table_service.create_table(TRANSACTION_TABLE_NAME)
+            except Exception:
+                pass
+
+            transaction_row = {
+                "PartitionKey": property_id,
+                "RowKey": row["RowKey"],
+                "Category": category,
+                "Amount": amount,
+                "ExpenseDate": expense_date.isoformat(),
+                "Description": description,
+                "DocumentId": document_id,
+                "Transaction": transaction_type,
+                "Source": "ExpenseApi",
+                "CreatedAt": datetime.datetime.utcnow().isoformat()
+            }
+            transaction_table_client.create_entity(entity=transaction_row)
+
+            audit_blob_service = BlobServiceClient.from_connection_string(transaction_conn_str)
+            audit_container_client = audit_blob_service.get_container_client("audit_logs")
+            try:
+                audit_container_client.create_container()
+            except Exception:
+                pass
+
+            audit_blob_name = f"{property_id}/{row['RowKey']}.json"
+            audit_blob_client = audit_container_client.get_blob_client(audit_blob_name)
+            audit_blob_client.upload_blob(
+                json.dumps(transaction_row).encode("utf-8"),
+                overwrite=True
+            )
 
         return func.HttpResponse(
             json.dumps({"success": True, "expenseId": row["RowKey"], "documentId": document_id}),
