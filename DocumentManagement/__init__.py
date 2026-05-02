@@ -1,10 +1,12 @@
 import azure.functions as func
 from azure.storage.blob import BlobServiceClient
 from azure.data.tables import TableServiceClient
+from azure.core.exceptions import ResourceNotFoundError
 import os
 import json
 import datetime
 import logging
+import urllib.parse
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -126,18 +128,31 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     content_type = entity.get("ContentType", "application/octet-stream")
                     blob_client = container_client.get_blob_client(blob_name)
                     blob_data = blob_client.download_blob().readall()
-                except Exception:
+                except ResourceNotFoundError:
                     return func.HttpResponse(
                         json.dumps({"error": "Document not found"}),
                         status_code=404,
                         mimetype="application/json",
                         headers={"Access-Control-Allow-Origin": "*"}
                     )
+                except Exception as ex:
+                    logging.error(f"Document download failed: {ex}")
+                    return func.HttpResponse(
+                        json.dumps({"error": "Document download failed", "details": str(ex)}),
+                        status_code=500,
+                        mimetype="application/json",
+                        headers={"Access-Control-Allow-Origin": "*"}
+                    )
+
+                safe_filename = filename.encode("ascii", "ignore").decode("ascii") or "download"
+                encoded_filename = urllib.parse.quote(filename)
 
                 return func.HttpResponse(
                     blob_data,
                     headers={
-                        "Content-Disposition": f'attachment; filename="{filename}"',
+                        "Content-Disposition": (
+                            f"attachment; filename=\"{safe_filename}\"; filename*=UTF-8''{encoded_filename}"
+                        ),
                         "Content-Type": content_type,
                         "Access-Control-Allow-Origin": "*"
                     }

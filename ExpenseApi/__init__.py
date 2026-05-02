@@ -2,8 +2,9 @@ import logging
 import azure.functions as func
 import uuid
 import datetime
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, AppendBlobClient
 from azure.data.tables import TableServiceClient
+from azure.core.exceptions import ResourceExistsError
 import os
 import traceback
 import json
@@ -11,15 +12,24 @@ import json
 TABLE_NAME = "Expenses"
 BLOB_CONTAINER = "bills"
 TRANSACTION_TABLE_NAME = "Transactions"
-TRANSACTION_STORAGE_CONN_ENV = "ANAVICHEAG_STORAGE_CONNECTION_STRING"
+AUDIT_TABLE_NAME = "ExpensesAudit"
+AUDIT_STORAGE_CONN_ENV = "AUDIT_STORAGE_CONNECTION_STRING"
+BILLS_STORAGE_CONN_ENV = "BILLS_STORAGE_CONNECTION_STRING"
+
+
+def _get_account_name(connection_string: str) -> str:
+    for part in (connection_string or "").split(";"):
+        if part.startswith("AccountName="):
+            return part.split("=", 1)[1]
+    return ""
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
-        conn_str = os.getenv("AzureWebJobsStorage")
+        conn_str = os.getenv(BILLS_STORAGE_CONN_ENV)
         if not conn_str:
             return func.HttpResponse("Missing storage connection string", status_code=500)
 
-        transaction_conn_str = os.getenv(TRANSACTION_STORAGE_CONN_ENV)
+        audit_storage_conn_str = os.getenv(AUDIT_STORAGE_CONN_ENV)
 
         table_service = TableServiceClient.from_connection_string(conn_str)
         table_client = table_service.get_table_client(TABLE_NAME)
@@ -96,11 +106,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         table_client.create_entity(entity=row)
 
-        if transaction_conn_str:
-            transaction_table_service = TableServiceClient.from_connection_string(transaction_conn_str)
+        if audit_storage_conn_str:
+            transaction_table_service = TableServiceClient.from_connection_string(audit_storage_conn_str)
             transaction_table_client = transaction_table_service.get_table_client(TRANSACTION_TABLE_NAME)
+            audit_table_client = transaction_table_service.get_table_client(AUDIT_TABLE_NAME)
             try:
                 transaction_table_service.create_table(TRANSACTION_TABLE_NAME)
+            except Exception:
+                pass
+            try:
+                transaction_table_service.create_table(AUDIT_TABLE_NAME)
             except Exception:
                 pass
 
@@ -118,7 +133,27 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             }
             transaction_table_client.create_entity(entity=transaction_row)
 
-            audit_blob_service = BlobServiceClient.from_connection_string(transaction_conn_str)
+            bills_account_name = _get_account_name(conn_str)
+            audit_account_name = _get_account_name(audit_storage_conn_str)
+
+            audit_row = {
+                "PartitionKey": property_id,
+                "RowKey": row["RowKey"],
+                "SourceTable": TABLE_NAME,
+                "SourceRowKey": row["RowKey"],
+                "SourceStorageAccount": bills_account_name,
+                "AuditStorageAccount": audit_account_name,
+                "Category": category,
+                "Amount": amount,
+                "ExpenseDate": expense_date.isoformat(),
+                "Description": description,
+                "DocumentId": document_id,
+                "Transaction": transaction_type,
+                "AuditCreatedAt": datetime.datetime.utcnow().isoformat()
+            }
+            audit_table_client.create_entity(entity=audit_row)
+
+            audit_blob_service = BlobServiceClient.from_connection_string(audit_storage_conn_str)
             audit_container_client = audit_blob_service.get_container_client("audit_logs")
             try:
                 audit_container_client.create_container()
@@ -130,6 +165,21 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             audit_blob_client.upload_blob(
                 json.dumps(transaction_row).encode("utf-8"),
                 overwrite=True
+            )
+
+            append_blob_name = f"{property_id}/audit-log.jsonl"
+            append_blob_client = AppendBlobClient.from_connection_string(
+                audit_storage_conn_str,
+                container_name="audit_logs",
+                blob_name=append_blob_name
+            )
+            try:
+                append_blob_client.create_append_blob()
+            except ResourceExistsError:
+                pass
+
+            append_blob_client.append_block(
+                (json.dumps(audit_row) + "\n").encode("utf-8")
             )
 
         return func.HttpResponse(
