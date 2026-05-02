@@ -2,42 +2,47 @@ import logging
 import azure.functions as func
 import uuid
 import datetime
-from azure.storage.blob import BlobServiceClient, AppendBlobClient
+from azure.storage.blob import BlobServiceClient
 from azure.data.tables import TableServiceClient
-from azure.core.exceptions import ResourceExistsError
 import os
 import traceback
 import json
 
 TABLE_NAME = "Expenses"
 BLOB_CONTAINER = "bills"
-TRANSACTION_TABLE_NAME = "Transactions"
-AUDIT_TABLE_NAME = "ExpensesAudit"
 AUDIT_STORAGE_CONN_ENV = "AUDIT_STORAGE_CONNECTION_STRING"
-BILLS_STORAGE_CONN_ENV = "BILLS_STORAGE_CONNECTION_STRING"
+AUDIT_PROPERTY_ID = "20260101120841154617"
 
 
-def _get_account_name(connection_string: str) -> str:
-    for part in (connection_string or "").split(";"):
-        if part.startswith("AccountName="):
-            return part.split("=", 1)[1]
-    return ""
+def _ensure_table(table_service: TableServiceClient, table_name: str):
+    try:
+        table_service.create_table(table_name)
+    except Exception:
+        pass
+    return table_service.get_table_client(table_name)
+
+
+def _ensure_container(blob_service: BlobServiceClient, container_name: str):
+    container_client = blob_service.get_container_client(container_name)
+    try:
+        container_client.create_container()
+    except Exception:
+        pass
+    return container_client
+
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
-        conn_str = os.getenv(BILLS_STORAGE_CONN_ENV)
+        conn_str = os.getenv("AzureWebJobsStorage")
         if not conn_str:
             return func.HttpResponse("Missing storage connection string", status_code=500)
 
         audit_storage_conn_str = os.getenv(AUDIT_STORAGE_CONN_ENV)
+        bills_storage_conn_str = conn_str
 
         table_service = TableServiceClient.from_connection_string(conn_str)
-        table_client = table_service.get_table_client(TABLE_NAME)
-        try:
-            table_service.create_table(TABLE_NAME)
-        except Exception:
-            pass
-        blob_service = BlobServiceClient.from_connection_string(conn_str)
+        table_client = _ensure_table(table_service, TABLE_NAME)
+        blob_service = BlobServiceClient.from_connection_string(bills_storage_conn_str)
 
         method = req.method.upper()
 
@@ -106,80 +111,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         table_client.create_entity(entity=row)
 
-        if audit_storage_conn_str:
-            transaction_table_service = TableServiceClient.from_connection_string(audit_storage_conn_str)
-            transaction_table_client = transaction_table_service.get_table_client(TRANSACTION_TABLE_NAME)
-            audit_table_client = transaction_table_service.get_table_client(AUDIT_TABLE_NAME)
-            try:
-                transaction_table_service.create_table(TRANSACTION_TABLE_NAME)
-            except Exception:
-                pass
-            try:
-                transaction_table_service.create_table(AUDIT_TABLE_NAME)
-            except Exception:
-                pass
-
-            transaction_row = {
-                "PartitionKey": property_id,
-                "RowKey": row["RowKey"],
-                "Category": category,
-                "Amount": amount,
-                "ExpenseDate": expense_date.isoformat(),
-                "Description": description,
-                "DocumentId": document_id,
-                "Transaction": transaction_type,
-                "Source": "ExpenseApi",
-                "CreatedAt": datetime.datetime.utcnow().isoformat()
-            }
-            transaction_table_client.create_entity(entity=transaction_row)
-
-            bills_account_name = _get_account_name(conn_str)
-            audit_account_name = _get_account_name(audit_storage_conn_str)
-
-            audit_row = {
-                "PartitionKey": property_id,
-                "RowKey": row["RowKey"],
-                "SourceTable": TABLE_NAME,
-                "SourceRowKey": row["RowKey"],
-                "SourceStorageAccount": bills_account_name,
-                "AuditStorageAccount": audit_account_name,
-                "Category": category,
-                "Amount": amount,
-                "ExpenseDate": expense_date.isoformat(),
-                "Description": description,
-                "DocumentId": document_id,
-                "Transaction": transaction_type,
-                "AuditCreatedAt": datetime.datetime.utcnow().isoformat()
-            }
-            audit_table_client.create_entity(entity=audit_row)
-
+        if audit_storage_conn_str and property_id == AUDIT_PROPERTY_ID:
             audit_blob_service = BlobServiceClient.from_connection_string(audit_storage_conn_str)
-            audit_container_client = audit_blob_service.get_container_client("audit_logs")
-            try:
-                audit_container_client.create_container()
-            except Exception:
-                pass
-
+            audit_container_client = _ensure_container(audit_blob_service, "audit-logs")
             audit_blob_name = f"{property_id}/{row['RowKey']}.json"
             audit_blob_client = audit_container_client.get_blob_client(audit_blob_name)
+            audit_payload = dict(row)
+            audit_payload["Source"] = "ExpenseApi"
+            audit_payload["CreatedAt"] = datetime.datetime.utcnow().isoformat()
             audit_blob_client.upload_blob(
-                json.dumps(transaction_row).encode("utf-8"),
+                json.dumps(audit_payload).encode("utf-8"),
                 overwrite=True
-            )
-
-            append_blob_name = f"{property_id}/audit-log.jsonl"
-            append_blob_client = AppendBlobClient.from_connection_string(
-                audit_storage_conn_str,
-                container_name="audit_logs",
-                blob_name=append_blob_name
-            )
-            try:
-                append_blob_client.create_append_blob()
-            except ResourceExistsError:
-                pass
-
-            append_blob_client.append_block(
-                (json.dumps(audit_row) + "\n").encode("utf-8")
             )
 
         return func.HttpResponse(
@@ -191,4 +133,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         logging.error(f"Error saving expense: {e}")
         logging.error(traceback.format_exc())
-        return func.HttpResponse(f"❌ Failed: {str(e)}", status_code=500)
+        return func.HttpResponse(
+            json.dumps({"error": str(e), "trace": traceback.format_exc()}),
+            mimetype="application/json",
+            status_code=500
+        )
