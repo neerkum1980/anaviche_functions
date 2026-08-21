@@ -10,7 +10,7 @@ def _build_target_url(req: func.HttpRequest, path: str) -> str:
     host = os.getenv("WEBSITE_HOSTNAME")
     base = f"https://{host}" if host else "http://localhost:7071"
 
-    query_params = dict(req.params)
+    query_params = {k: v for k, v in req.params.items() if k != "path"}
     function_key = query_params.get("code") or req.headers.get("x-functions-key") or os.getenv("FUNCTIONS_KEY")
     if function_key and "code" not in query_params:
         query_params["code"] = function_key
