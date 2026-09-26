@@ -1,0 +1,31 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [test, prod]
+        default: test
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'test' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'test' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ github.event.inputs.environment == 'prod' && secrets.SWA_TOKEN_PROD || secrets.SWA_TOKEN_TEST }}
+          action: upload
+          app_location: /
+          skip_app_build: true
