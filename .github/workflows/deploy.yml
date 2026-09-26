@@ -1,0 +1,109 @@
+# Deploys the Function App code.
+#   push to main          -> anaviche-functions-test-y1 (test), automatically
+#   Run workflow (manual) -> anaviche-functions (production) by default, from main only
+#
+# Azure login uses OIDC through the Entra app "anaviche-functions-github-deploy". Its
+# federated credentials trust this repo's "test" and "production" environments, and it
+# has Website Contributor on the two Function Apps only. No secrets are stored in GitHub.
+
+name: Deploy Functions
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "mcp_server/**"
+      - ".claude/**"
+      - ".mcp.json"
+      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Environment to deploy to"
+        type: choice
+        options: [production, test]
+        default: production
+
+permissions:
+  id-token: write   # OIDC login to Azure
+  contents: read
+
+env:
+  AZURE_CLIENT_ID: d6af7cfa-a2f0-41ca-b115-d0ad15fb0b32
+  AZURE_TENANT_ID: 9636baf2-1763-480c-8bb3-5689803dbf04
+  AZURE_SUBSCRIPTION_ID: d00d160d-520b-4380-aae9-4930c151b7eb
+  PYTHON_VERSION: "3.12"   # matches the Function Apps' runtime (Python|3.12)
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile and import every function
+        run: |
+          for d in */; do
+            if [ -f "$d/function.json" ]; then
+              python -m py_compile "$d/__init__.py"
+              python -c "import importlib; importlib.import_module('${d%/}')"
+              echo "ok: ${d%/}"
+            fi
+          done
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'push' && 'test' || inputs.target }}
+    concurrency:
+      group: deploy-${{ github.event_name == 'push' && 'test' || inputs.target }}
+      cancel-in-progress: false
+    steps:
+      - name: Resolve target
+        id: target
+        run: |
+          target="${{ github.event_name == 'push' && 'test' || inputs.target }}"
+          if [ "$target" = "production" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Production deploys must run from main (got $GITHUB_REF)."
+            exit 1
+          fi
+          if [ "$target" = "production" ]; then
+            echo "app=anaviche-functions" >> "$GITHUB_OUTPUT"
+            echo "rg=AnavicheRG" >> "$GITHUB_OUTPUT"
+          else
+            echo "app=anaviche-functions-test-y1" >> "$GITHUB_OUTPUT"
+            echo "rg=AnavicheRG-test" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to ${{ steps.target.outputs.app }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ steps.target.outputs.app }}
+          package: .
+          respect-funcignore: true
+          scm-do-build-during-deployment: true
+          enable-oryx-build: true
+
+      - name: Smoke test (read-only GET /api/properties)
+        run: |
+          app="${{ steps.target.outputs.app }}"; rg="${{ steps.target.outputs.rg }}"
+          key=$(az functionapp keys list -n "$app" -g "$rg" --query functionKeys.default -o tsv)
+          echo "::add-mask::$key"
+          host=$(az functionapp show -n "$app" -g "$rg" --query defaultHostName -o tsv)
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 -H "x-functions-key: $key" "https://$host/api/properties" || true)
+            if [ "$code" = "200" ]; then echo "Smoke test passed on $host"; exit 0; fi
+            echo "Attempt $i: HTTP $code, retrying..."; sleep 15
+          done
+          echo "::error::Smoke test failed on $host (last HTTP $code)"; exit 1
