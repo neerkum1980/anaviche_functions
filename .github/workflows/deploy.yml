@@ -16,6 +16,7 @@ on:
       - ".claude/**"
       - ".mcp.json"
       - "**/*.md"
+      - "docs/**"
   workflow_dispatch:
     inputs:
       target:
@@ -103,15 +104,42 @@ jobs:
           scm-do-build-during-deployment: false
           enable-oryx-build: false
 
-      - name: Smoke test (read-only GET /api/properties)
+      # One read-only request per function. Any import error makes a function return 500,
+      # so a function that answers with its own expected status has loaded correctly.
+      - name: Smoke test (every function, read-only)
         run: |
           app="${{ steps.target.outputs.app }}"; rg="${{ steps.target.outputs.rg }}"
           key=$(az functionapp keys list -n "$app" -g "$rg" --query functionKeys.default -o tsv)
           echo "::add-mask::$key"
           host=$(az functionapp show -n "$app" -g "$rg" --query defaultHostName -o tsv)
+
+          # function | path | send key? | expected status | text the body must contain
+          checks='PropertiesAPI|properties|key|200|
+          ExpenseApi|expenses?propertyId=__smoke__|key|200|
+          DocumentManagement|DocumentManagement?propertyId=__smoke__|key|200|
+          BillsDownloadApi|BillsDownloadApi|key|400|documentId
+          gateway|gateway/properties|nokey|200|'
+
+          run_checks() {
+            failed=0
+            while IFS='|' read -r name path auth want text; do
+              name=$(echo "$name" | xargs)
+              headers=()
+              [ "$auth" = "key" ] && headers=(-H "x-functions-key: $key")
+              code=$(curl -s -o body.txt -w "%{http_code}" --max-time 60 "${headers[@]}" "https://$host/api/$path" || echo "000")
+              if [ "$code" = "$want" ] && { [ -z "$text" ] || grep -q "$text" body.txt; }; then
+                printf "  ok    %-20s %s\n" "$name" "$code"
+              else
+                printf "  FAIL  %-20s got %s, want %s\n" "$name" "$code" "$want"
+                failed=1
+              fi
+            done <<< "$checks"
+            return $failed
+          }
+
           for i in $(seq 1 10); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 -H "x-functions-key: $key" "https://$host/api/properties" || true)
-            if [ "$code" = "200" ]; then echo "Smoke test passed on $host"; exit 0; fi
-            echo "Attempt $i: HTTP $code, retrying..."; sleep 15
+            echo "Attempt $i on $host"
+            if run_checks; then echo "All functions passed."; exit 0; fi
+            sleep 15
           done
-          echo "::error::Smoke test failed on $host (last HTTP $code)"; exit 1
+          echo "::error::Smoke test failed on $host after 10 attempts"; exit 1
