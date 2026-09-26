@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage Properties | ANAVICHE AG</title>
+<style>
+body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; position: relative; }
+header { background-color: #004b8d; color: white; text-align: center; padding: 40px 20px; position: relative; z-index: 10; pointer-events: auto; }
+header h1 { margin: 0; font-size: 2.2em; }
+header p { margin-top: 10px; font-size: 1.1em; color: #d0e3f0; }
+nav { background-color: #003864; text-align: center; padding: 12px 0; position: relative; z-index: 5; }
+nav a { color: white; margin: 0 22px; text-decoration: none; font-weight: bold; font-size: 1.05em; }
+nav a:hover { text-decoration: underline; }
+.auth-actions { margin-top: 16px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; position: relative; z-index: 11; pointer-events: auto; }
+.auth-actions button { background-color: #ffffff; color: #004b8d; border: 1px solid #004b8d; padding: 6px 14px; border-radius: 20px; font-weight: 600; cursor: pointer; pointer-events: auto; }
+.auth-actions button:hover { background-color: #e6f0fb; }
+.auth-user { color: #d0e3f0; font-size: 0.95em; }
+main { max-width: 1000px; margin: 40px auto; padding: 20px; position: relative; z-index: 1; }
+h2 { color: #004b8d; border-bottom: 2px solid #004b8d; padding-bottom: 8px; margin-bottom: 20px; }
+form { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 40px; }
+label { display: block; margin: 10px 0 5px; font-weight: 600; }
+input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1em; }
+button { background-color: #004b8d; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 1em; margin-top: 10px; }
+button:hover { background-color: #0060b1; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+th { background-color: #004b8d; color: white; }
+.actions button { margin-right: 6px; padding: 6px 12px; }
+#docSection { display: none; margin-top: 40px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+#docSection h3 { margin-top: 0; }
+#debugOutput { background:#f0f0f0; padding:10px; margin-top:10px; overflow:auto; white-space: pre-wrap; min-height: 48px; border: 1px solid #ddd; }
+footer { background-color: #003864; color: white; text-align: center; padding: 20px 10px; margin-top: 40px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Manage Properties</h1>
+  <p>Add, edit, delete properties and manage documents</p>
+  <div class="auth-actions">
+    <span class="auth-user" id="authUser">Not signed in</span>
+    <button type="button" id="signInBtn" onclick="signIn()">Sign in</button>
+    <button type="button" id="signOutBtn" hidden>Sign out</button>
+  </div>
+</header>
+
+<nav>
+  <a href="index.html">Home</a>
+  <a href="properties.html">Our Properties</a>
+  <a href="manage.html">Manage Properties</a>
+  <a href="accounting.html">Accounting</a>
+</nav>
+
+<main>
+<h2>Add / Edit Property</h2>
+<form id="propertyForm">
+  <input type="hidden" id="editRowKey" />
+  <label>Property Name</label>
+  <input type="text" id="name" required placeholder="Example: Baarstrasse 12, Zug">
+  <label>Location</label>
+  <input type="text" id="location" required placeholder="City or Canton">
+  <label>Number of Units</label>
+  <input type="number" id="units" required min="1">
+  <label>Description</label>
+  <textarea id="description" rows="3" placeholder="Brief property details..."></textarea>
+  <button type="submit">Save Property</button>
+</form>
+
+<h2>Property List</h2>
+<table id="propertiesTable">
+  <thead>
+    <tr>
+      <th>Property ID</th>
+      <th>Name</th>
+      <th>Location</th>
+      <th>Units</th>
+      <th>Description</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div id="docSection">
+  <h3 id="docPropertyTitle"></h3>
+  <input type="file" id="docFile" />
+  <button id="uploadBtn" onclick="uploadDocument()" disabled>Upload Document</button>
+  <pre id="debugOutput"></pre>
+  <table id="documentsTable">
+    <thead>
+      <tr>
+        <th>File Name</th>
+        <th>Size</th>
+        <th>Uploaded At</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+</main>
+
+<footer>
+  &copy; 2026 ANAVICHE AG. All rights reserved.
+</footer>
+
+<script>
+const msalConfig = {
+  auth: {
+    clientId: "f72fb2f7-fb7e-4220-be95-440adf112604",
+    authority: "https://login.microsoftonline.com/9636baf2-1763-480c-8bb3-5689803dbf04",
+    redirectUri: window.location.origin + window.location.pathname
+  },
+  cache: {
+    cacheLocation: "localStorage",
+    storeAuthStateInCookie: false
+  }
+};
+
+const loginRequest = {
+  scopes: ["api://5a786d75-4a9c-4fc8-bf05-479607dbf471/access_as_user"]
+};
+
+let msalInstance = null;
+let msalReady = false;
+
+async function loadMsalScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+async function initMsal() {
+  if (msalReady) return;
+  if (!window.msal) {
+    try {
+      await loadMsalScript("https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js");
+    } catch (err) {
+      try {
+        await loadMsalScript("https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.39.0/lib/msal-browser.min.js");
+      } catch (fallbackErr) {
+        const debugOutput = document.getElementById("debugOutput");
+        if (debugOutput) debugOutput.textContent = "MSAL failed to load.";
+        return;
+      }
+    }
+  }
+  if (!window.msal) {
+    const debugOutput = document.getElementById("debugOutput");
+    if (debugOutput) debugOutput.textContent = "MSAL failed to load.";
+    return;
+  }
+  msalInstance = new msal.PublicClientApplication(msalConfig);
+  msalReady = true;
+}
+
+const gatewayBase = "https://anaviche-functions-test-y1.azurewebsites.net/api/gateway";
+const apiBase = `${gatewayBase}/properties`;
+const docsApi = `${gatewayBase}/DocumentManagement`;
+
+const tableBody = document.querySelector("#propertiesTable tbody");
+const form = document.getElementById("propertyForm");
+const editRowKey = document.getElementById("editRowKey");
+const uploadBtn = document.getElementById("uploadBtn");
+const signInBtn = document.getElementById("signInBtn");
+const signOutBtn = document.getElementById("signOutBtn");
+const authUser = document.getElementById("authUser");
+let accessToken = "";
+let selectedProperty = null;
+
+tableBody.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const action = button.dataset.action;
+  const rowKey = button.dataset.rowKey;
+  if (!rowKey) return;
+  if (action === "edit") editProperty(rowKey);
+  if (action === "delete") deleteProperty(rowKey);
+  if (action === "documents") openDocuments(rowKey);
+});
+
+function setAuthUi(account) {
+  if (account) {
+    authUser.textContent = account.username || account.name || "Signed in";
+    signInBtn.hidden = true;
+    signOutBtn.hidden = false;
+  } else {
+    authUser.textContent = "Not signed in";
+    signInBtn.hidden = false;
+    signOutBtn.hidden = true;
+  }
+}
+
+async function handleMsalRedirect() {
+  await initMsal();
+  if (!msalInstance) return;
+  try {
+    const response = await msalInstance.handleRedirectPromise();
+    if (response && response.account) {
+      msalInstance.setActiveAccount(response.account);
+    } else {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length) {
+        msalInstance.setActiveAccount(accounts[0]);
+      }
+    }
+  } catch (err) {
+    console.error("MSAL redirect error:", err);
+  }
+  setAuthUi(msalInstance.getActiveAccount());
+}
+
+async function signIn() {
+  await initMsal();
+  if (!msalInstance) return;
+  try {
+    await msalInstance.loginRedirect({
+      ...loginRequest,
+      redirectUri: window.location.origin + window.location.pathname
+    });
+  } catch (err) {
+    console.error("MSAL login error:", err);
+  }
+}
+
+async function signOut() {
+  await initMsal();
+  if (!msalInstance) return;
+  const account = msalInstance.getActiveAccount();
+  if (!account) return;
+  await msalInstance.logoutRedirect({ account });
+}
+
+async function getAccessToken() {
+  await initMsal();
+  if (!msalInstance) return "";
+  const account = msalInstance.getActiveAccount();
+  if (!account) {
+    await signIn();
+    return "";
+  }
+
+  try {
+    const result = await msalInstance.acquireTokenSilent({
+      ...loginRequest,
+      account
+    });
+    accessToken = result.accessToken;
+    return accessToken;
+  } catch (err) {
+    if (err instanceof msal.InteractionRequiredAuthError) {
+      return msalInstance.acquireTokenRedirect(loginRequest);
+    }
+    console.error("MSAL token error:", err);
+    return "";
+  }
+}
+
+async function authFetch(url, options = {}) {
+  const token = await getAccessToken();
+  const headers = new Headers(options.headers || {});
+  const debugOutput = document.getElementById("debugOutput");
+  if (!token) {
+    if (debugOutput) {
+      debugOutput.textContent = `Token present: false\nFetching: ${url}`;
+    }
+    alert("Please sign in to continue.");
+    throw new Error("No access token");
+  }
+  headers.set("Authorization", `Bearer ${token}`);
+  if (debugOutput) {
+    debugOutput.textContent = `Token present: true\nFetching: ${url}`;
+  }
+  const response = await fetch(url, { ...options, headers });
+  if (debugOutput) {
+    debugOutput.textContent += `\nStatus: ${response.status}`;
+  }
+  if (!response.ok) {
+    const responseClone = response.clone();
+    const responseText = await responseClone.text().catch(() => "");
+    if (debugOutput && responseText) {
+      debugOutput.textContent += `\nResponse: ${responseText}`;
+    }
+  }
+  return response;
+}
+
+// ------------------ LOAD PROPERTIES ------------------
+async function loadProperties() {
+  tableBody.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
+  try {
+    const res = await authFetch(apiBase);
+    if(!res.ok) throw new Error(`Status: ${res.status}`);
+    const list = await res.json();
+    tableBody.innerHTML = "";
+    if (!list.length) { 
+      tableBody.innerHTML = "<tr><td colspan='6'>No properties found.</td></tr>"; 
+      return; 
+    }
+    list.forEach(p => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${p.RowKey}</td>
+        <td>${p.Name || ""}</td>
+        <td>${p.Location || ""}</td>
+        <td>${p.Units || ""}</td>
+        <td>${p.Description || ""}</td>
+        <td class="actions">
+          <button type="button" data-action="edit" data-row-key="${p.RowKey}">Edit</button>
+          <button type="button" data-action="delete" data-row-key="${p.RowKey}">Delete</button>
+          <button type="button" data-action="documents" data-row-key="${p.RowKey}">Documents</button>
+        </td>
+      `;
+      tableBody.appendChild(row);
+    });
+  } catch (e) { 
+    console.error(e); 
+    tableBody.innerHTML = "<tr><td colspan='6'>Failed to load properties.</td></tr>"; 
+  }
+}
+
+// ------------------ SAVE / UPDATE PROPERTY ------------------
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  const body = {
+    Name: document.getElementById("name").value.trim(),
+    Location: document.getElementById("location").value.trim(),
+    Units: document.getElementById("units").value,
+    Description: document.getElementById("description").value.trim()
+  };
+  const rowKey = editRowKey.value;
+  const method = rowKey ? "PUT" : "POST";
+  const url = rowKey ? `${apiBase}?rowKey=${rowKey}` : apiBase;
+
+  try {
+    const res = await authFetch(url, {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error(`Status: ${res.status}`);
+    form.reset();
+    editRowKey.value = "";
+    loadProperties();
+  } catch (e) { console.error("Error saving property:", e); }
+});
+
+// ------------------ EDIT PROPERTY ------------------
+async function editProperty(rowKey) {
+  try {
+    const res = await authFetch(apiBase);
+    if (!res.ok) throw new Error(`Status: ${res.status}`);
+    const list = await res.json();
+    const p = list.find(x => x.RowKey === rowKey);
+    if (!p) return;
+    document.getElementById("name").value = p.Name;
+    document.getElementById("location").value = p.Location;
+    document.getElementById("units").value = p.Units;
+    document.getElementById("description").value = p.Description;
+    editRowKey.value = p.RowKey;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (e) {
+    console.error("Edit failed:", e);
+    alert("Edit failed. Please sign in and try again.");
+  }
+}
+
+// ------------------ DELETE PROPERTY ------------------
+async function deleteProperty(rowKey) {
+  if(!confirm("Delete this property?")) return;
+  try {
+    const res = await authFetch(`${apiBase}?rowKey=${rowKey}`, { method: "DELETE" });
+    if(!res.ok) throw new Error(`Status: ${res.status}`);
+    loadProperties();
+  } catch(e) { console.error("Delete failed:", e); }
+}
+
+// ------------------ DOCUMENT MANAGEMENT ------------------
+function openDocuments(propertyId) {
+  selectedProperty = propertyId;
+  document.getElementById("docPropertyTitle").innerText = `Documents for Property ID: ${propertyId}`;
+  document.getElementById("docSection").style.display = "block";
+  const debugOutput = document.getElementById("debugOutput");
+  if (debugOutput) debugOutput.textContent = "Ready for download.";
+  uploadBtn.disabled = false;
+  loadDocuments();
+}
+
+async function loadDocuments() {
+  const tbody = document.querySelector("#documentsTable tbody");
+  tbody.innerHTML = "<tr><td colspan='4'>Loading...</td></tr>";
+  try {
+    const res = await authFetch(`${docsApi}?propertyId=${selectedProperty}`);
+    if(!res.ok) throw new Error(`Status: ${res.status}`);
+    const list = await res.json();
+    tbody.innerHTML = "";
+    if(!list.length) { tbody.innerHTML = "<tr><td colspan='4'>No documents.</td></tr>"; return; }
+    list.forEach(doc => {
+      const row = document.createElement("tr");
+      const blobCandidate = doc.BlobName || doc.BlobId || doc.Blob || doc.StorageKey || "";
+      row.innerHTML = `
+        <td>${doc.FileName}</td>
+        <td>${Math.round(doc.FileSize/1024)} KB</td>
+        <td>${new Date(doc.UploadedAt).toLocaleString()}</td>
+        <td>
+          <button onclick="downloadDocument('${doc.DocumentId}', '${blobCandidate}')">Download</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch(e) {
+    console.error("Load documents failed:", e);
+    tbody.innerHTML = "<tr><td colspan='4'>Failed to load documents.</td></tr>";
+  }
+}
+
+async function uploadDocument() {
+  if(!selectedProperty) { alert("Select a property first."); return; }
+  const fileInput = document.getElementById("docFile");
+  if(fileInput.files.length===0) { alert("Select a file first."); return; }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+  formData.append("propertyId", selectedProperty);
+
+  try {
+    const res = await authFetch(docsApi, { method:"POST", body:formData });
+    if(!res.ok) throw new Error("Upload failed");
+    alert("✅ Document uploaded successfully");
+    fileInput.value = "";
+    loadDocuments();
+  } catch(e) {
+    console.error("Upload error:", e);
+    alert("Upload failed");
+  }
+}
+
+async function downloadDocument(documentId, blobCandidate = "") {
+  try {
+    if (!selectedProperty) {
+      alert("Select a property first.");
+      return;
+    }
+
+    const debugOutput = document.getElementById("debugOutput");
+    const buildUrl = (baseUrl, paramName, value, includeProperty = true) => {
+      const parts = [];
+      if (includeProperty) {
+        parts.push(`propertyId=${encodeURIComponent(selectedProperty)}`);
+      }
+      parts.push(`${paramName}=${encodeURIComponent(value)}`);
+      return `${baseUrl}?${parts.join("&")}`;
+    };
+
+    const tryDownload = async (url, label) => {
+      if (debugOutput) debugOutput.textContent = `Trying ${label}: ${url}`;
+      const response = await authFetch(url);
+      if (!response.ok && debugOutput) {
+        const errorText = await response.clone().text().catch(() => "");
+        if (errorText) debugOutput.textContent += `\n${label} response: ${errorText}`;
+      }
+      return response;
+    };
+
+    let res = null;
+    if (documentId) {
+      const docUrl = buildUrl(docsApi, "documentId", documentId, true);
+      res = await tryDownload(docUrl, "documentId");
+    }
+
+
+    if (!res.ok) throw new Error("Download failed");
+
+    let responseToSave = res;
+    const contentType = res.headers.get("Content-Type") || "";
+    let fallbackFilename = "document";
+    if (contentType.includes("application/json")) {
+      const payload = await res.clone().json().catch(() => null);
+      if (debugOutput) {
+        debugOutput.textContent += `\nJSON payload: ${JSON.stringify(payload)}`;
+      }
+      if (Array.isArray(payload)) {
+        const match = payload.find(item => item.DocumentId === documentId) || payload[0];
+        if (match) {
+          fallbackFilename = match.FileName || fallbackFilename;
+          const blobName = match.BlobName || blobCandidate;
+          let downloadResponse = null;
+          if (blobName) {
+            const blobNameUrl = buildUrl(docsDownloadApi, "blobName", blobName, true);
+            downloadResponse = await tryDownload(blobNameUrl, "download/blobName+property");
+          }
+          if ((!downloadResponse || !downloadResponse.ok) && documentId) {
+            const docUrl = buildUrl(docsDownloadApi, "documentId", documentId, true);
+            downloadResponse = await tryDownload(docUrl, "download/documentId+property");
+          }
+          if (downloadResponse && downloadResponse.ok) {
+            responseToSave = downloadResponse;
+          }
+        }
+      } else {
+        const fileUrl = payload?.url || payload?.downloadUrl || payload?.sasUrl || payload?.blobUrl || payload?.fileUrl;
+        if (fileUrl) {
+          responseToSave = await fetch(fileUrl);
+        }
+      }
+    }
+
+    const blob = await responseToSave.blob();
+    const contentDisposition = responseToSave.headers.get("Content-Disposition") || res.headers.get("Content-Disposition");
+    let filename = fallbackFilename;
+    if (contentDisposition && contentDisposition.includes("filename=")) {
+      filename = contentDisposition.split("filename=")[1].replace(/"/g, "");
+    }
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (e) {
+    console.error("Download failed:", e);
+    alert("Download failed");
+  }
+}
+
+signInBtn.disabled = false;
+signInBtn.style.pointerEvents = "auto";
+signInBtn.addEventListener("click", () => {
+  const debugOutput = document.getElementById("debugOutput");
+  if (debugOutput) debugOutput.textContent = "Sign in clicked";
+  signIn();
+});
+signOutBtn.addEventListener("click", signOut);
+
+// ------------------ INITIAL LOAD ------------------
+handleMsalRedirect().then(() => {
+  if (!msalInstance) return;
+  const account = msalInstance.getActiveAccount();
+  if (account) {
+    loadProperties();
+  }
+});
+
+</script>
+</body>
+</html>

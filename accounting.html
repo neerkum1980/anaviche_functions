@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accounting | ANAVICHE AG</title>
+<style>
+body { margin:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color:#f8f9fa; color:#333; position: relative; }
+header { background-color:#004b8d; color:white; text-align:center; padding:40px 20px; position: relative; z-index: 10; pointer-events: auto; }
+header h1 { margin:0; font-size:2.2em; }
+header p { margin-top:10px; font-size:1.1em; color:#d0e3f0; }
+nav { background-color:#003864; text-align:center; padding:12px 0; position: relative; z-index: 5; }
+nav a { color:white; margin:0 22px; text-decoration:none; font-weight:bold; font-size:1.05em; }
+nav a:hover { text-decoration:underline; }
+.auth-actions { margin-top: 16px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; position: relative; z-index: 11; pointer-events: auto; }
+.auth-actions button { background-color: #ffffff; color: #004b8d; border: 1px solid #004b8d; padding: 6px 14px; border-radius: 20px; font-weight: 600; cursor: pointer; pointer-events: auto; }
+.auth-actions button:hover { background-color: #e6f0fb; }
+.auth-user { color: #d0e3f0; font-size: 0.95em; }
+main { max-width:1000px; margin:40px auto; padding:20px; position: relative; z-index: 1; }
+h2 { color:#004b8d; border-bottom:2px solid #004b8d; padding-bottom:8px; margin-bottom:20px; }
+form { background:white; padding:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:40px; }
+label { display:block; margin:10px 0 5px; font-weight:600; }
+input, textarea, select { width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; font-size:1em; }
+button { background-color:#004b8d; color:white; border:none; padding:10px 18px; border-radius:6px; cursor:pointer; font-size:1em; margin-top:10px; }
+button:hover { background-color:#0060b1; }
+table { width:100%; border-collapse:collapse; margin-top:20px; background:white; box-shadow:0 2px 6px rgba(0,0,0,0.1); border-radius:6px; overflow:hidden; }
+.export-actions { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; align-items:center; }
+.export-actions input { max-width: 160px; }
+.export-actions select { max-width: 160px; }
+.pagination { display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
+.pagination button { margin-top:0; }
+th, td { padding:12px; text-align:left; border-bottom:1px solid #ddd; }
+th { background-color:#004b8d; color:white; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable[data-order="asc"]::after { content: " ▲"; }
+th.sortable[data-order="desc"]::after { content: " ▼"; }
+.actions button { margin-right:6px; padding:6px 12px; }
+#debugOutput { background:#f0f0f0; padding:10px; margin-top:10px; overflow:auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Accounting</h1>
+  <p>Manage expenses and bills for your properties</p>
+  <div class="auth-actions">
+    <span class="auth-user" id="authUser">Not signed in</span>
+    <button type="button" id="signInBtn" onclick="signIn()">Sign in</button>
+    <button type="button" id="signOutBtn" hidden>Sign out</button>
+  </div>
+</header>
+
+<nav>
+  <a href="index.html">Home</a>
+  <a href="properties.html">Our Properties</a>
+  <a href="manage.html">Manage Properties</a>
+  <a href="accounting.html">Accounting</a>
+</nav>
+
+<main>
+<h2>Add Expense</h2>
+<form id="expenseForm">
+  <label>Property</label>
+  <select id="propertySelect" required>
+    <option value="">Select property</option>
+  </select>
+  <label>Category</label>
+  <input type="text" id="category" required placeholder="e.g., Maintenance, Utilities">
+  <label>Amount</label>
+  <input type="number" id="amount" required min="0.01" step="0.01">
+  <label>Date</label>
+  <input type="date" id="expenseDate" required>
+  <label>Transaction Type</label>
+  <select id="transactionType" required>
+    <option value="">Select type</option>
+    <option value="informative">Informative</option>
+    <option value="debit">Debit</option>
+    <option value="credit">Credit</option>
+  </select>
+  <label>Description</label>
+  <textarea id="description" rows="2"></textarea>
+  <label>Bill (optional)</label>
+  <input type="file" id="billFile">
+  <button type="submit">Save Expense</button>
+</form>
+
+<h2>Expenses</h2>
+<div class="export-actions">
+  <label for="yearInput"><strong>Annual Expense Report (CH fiscal year)</strong></label>
+  <input type="number" id="yearInput" min="2000" max="2100" step="1" placeholder="Year">
+  <select id="annualFormat">
+    <option value="csv">CSV</option>
+    <option value="pdf">PDF</option>
+  </select>
+  <button type="button" id="exportAnnualBtn">Export Annual Report</button>
+</div>
+<div class="export-actions">
+  <label for="reportFrom"><strong>Custom Period Expense Report</strong></label>
+  <input type="date" id="reportFrom">
+  <label for="reportTo">To</label>
+  <input type="date" id="reportTo">
+  <select id="customFormat">
+    <option value="csv">CSV</option>
+    <option value="pdf">PDF</option>
+  </select>
+  <button type="button" id="exportCustomBtn">Export Custom Period Report</button>
+</div>
+<table id="expensesTable">
+  <thead>
+    <tr>
+      <th class="sortable" data-key="PropertyName">Property</th>
+      <th class="sortable" data-key="Category">Category</th>
+      <th class="sortable" data-key="Amount" data-type="number">Amount</th>
+      <th class="sortable" data-key="ExpenseDate" data-type="date">Date</th>
+      <th class="sortable" data-key="Transaction">Transaction Type</th>
+      <th class="sortable" data-key="Description">Description</th>
+      <th class="sortable" data-key="DocumentId">Bill</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+<div class="pagination">
+  <button type="button" id="prevPageBtn">Previous</button>
+  <span id="pageInfo">Page 1 of 1</span>
+  <button type="button" id="nextPageBtn">Next</button>
+</div>
+
+<div id="apiResponse" style="background:#f0f0f0; padding:10px; margin-top:14px; overflow:auto; white-space: pre-wrap; border-radius: 6px; border: 1px solid #ddd;">
+  API response will appear here.
+</div>
+<div id="debugOutput" style="display: none;"></div>
+</main>
+
+<footer>
+  &copy; 2025 ANAVICHE AG. All rights reserved.
+</footer>
+
+<script>
+const msalConfig = {
+  auth: {
+    clientId: "f72fb2f7-fb7e-4220-be95-440adf112604",
+    authority: "https://login.microsoftonline.com/9636baf2-1763-480c-8bb3-5689803dbf04",
+    redirectUri: window.location.origin + window.location.pathname
+  },
+  cache: {
+    cacheLocation: "localStorage",
+    storeAuthStateInCookie: false
+  }
+};
+
+const loginRequest = {
+  scopes: ["api://5a786d75-4a9c-4fc8-bf05-479607dbf471/access_as_user"]
+};
+
+let msalInstance = null;
+let msalReady = false;
+
+async function loadMsalScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+async function initMsal() {
+  if (msalReady) return;
+  if (!window.msal) {
+    try {
+      await loadMsalScript("https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js");
+    } catch (err) {
+      try {
+        await loadMsalScript("https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.39.0/lib/msal-browser.min.js");
+      } catch (fallbackErr) {
+        debugOutput.textContent = "MSAL failed to load.";
+        return;
+      }
+    }
+  }
+  if (!window.msal) {
+    debugOutput.textContent = "MSAL failed to load.";
+    return;
+  }
+  msalInstance = new msal.PublicClientApplication(msalConfig);
+  msalReady = true;
+}
+
+const gatewayBase = "https://anaviche-functions-test-y1.azurewebsites.net/api/gateway";
+const propertiesApi = `${gatewayBase}/properties`;
+const expensesApi = `${gatewayBase}/expenses`;
+const billsDownloadApi = `${gatewayBase}/BillsDownloadApi`;
+const docsApi = `${gatewayBase}/DocumentManagement`;
+
+const propertySelect = document.getElementById("propertySelect");
+const expensesTableBody = document.querySelector("#expensesTable tbody");
+const expenseForm = document.getElementById("expenseForm");
+const debugOutput = document.getElementById("debugOutput");
+const exportAnnualBtn = document.getElementById("exportAnnualBtn");
+const exportCustomBtn = document.getElementById("exportCustomBtn");
+const annualFormat = document.getElementById("annualFormat");
+const customFormat = document.getElementById("customFormat");
+const yearInput = document.getElementById("yearInput");
+const reportFrom = document.getElementById("reportFrom");
+const reportTo = document.getElementById("reportTo");
+const prevPageBtn = document.getElementById("prevPageBtn");
+const nextPageBtn = document.getElementById("nextPageBtn");
+const pageInfo = document.getElementById("pageInfo");
+const signInBtn = document.getElementById("signInBtn");
+const signOutBtn = document.getElementById("signOutBtn");
+const authUser = document.getElementById("authUser");
+const apiResponse = document.getElementById("apiResponse");
+let accessToken = "";
+let lastExpensesData = [];
+let sortState = { key: null, order: "asc" };
+let currentPage = 1;
+const pageSize = 20;
+
+
+const expenseColumns = [
+  { key: "PropertyName", label: "Property" },
+  { key: "Category", label: "Category" },
+  { key: "Amount", label: "Amount" },
+  { key: "ExpenseDate", label: "Date" },
+  { key: "Transaction", label: "Transaction Type" },
+  { key: "Description", label: "Description" }
+];
+
+function setAuthUi(account) {
+  if (account) {
+    authUser.textContent = account.username || account.name || "Signed in";
+    signInBtn.hidden = true;
+    signOutBtn.hidden = false;
+  } else {
+    authUser.textContent = "Not signed in";
+    signInBtn.hidden = false;
+    signOutBtn.hidden = true;
+  }
+}
+
+async function handleMsalRedirect() {
+  await initMsal();
+  if (!msalInstance) return;
+  try {
+    const response = await msalInstance.handleRedirectPromise();
+    if (response && response.account) {
+      msalInstance.setActiveAccount(response.account);
+    } else {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length) {
+        msalInstance.setActiveAccount(accounts[0]);
+      }
+    }
+  } catch (err) {
+    debugOutput.textContent = "MSAL redirect error: " + err;
+  }
+  setAuthUi(msalInstance.getActiveAccount());
+}
+
+async function signIn() {
+  await initMsal();
+  if (!msalInstance) return;
+  try {
+    await msalInstance.loginRedirect({
+      ...loginRequest,
+      redirectUri: window.location.origin + window.location.pathname
+    });
+  } catch (err) {
+    debugOutput.textContent = "MSAL login error: " + err;
+  }
+}
+
+async function signOut() {
+  await initMsal();
+  if (!msalInstance) return;
+  const account = msalInstance.getActiveAccount();
+  if (!account) return;
+  await msalInstance.logoutRedirect({ account });
+}
+
+async function getAccessToken() {
+  await initMsal();
+  if (!msalInstance) return "";
+  const account = msalInstance.getActiveAccount();
+  if (!account) {
+    await signIn();
+    return "";
+  }
+
+  try {
+    const result = await msalInstance.acquireTokenSilent({
+      ...loginRequest,
+      account
+    });
+    accessToken = result.accessToken;
+    return accessToken;
+  } catch (err) {
+    if (err instanceof msal.InteractionRequiredAuthError) {
+      return msalInstance.acquireTokenRedirect(loginRequest);
+    }
+    debugOutput.textContent = "MSAL token error: " + err;
+    return "";
+  }
+}
+
+async function authFetch(url, options = {}) {
+  const token = await getAccessToken();
+  const headers = new Headers(options.headers || {});
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  debugOutput.textContent = `Token present: ${!!token}\nFetching: ${url}`;
+  const response = await fetch(url, { ...options, headers });
+  debugOutput.textContent += `\nStatus: ${response.status}`;
+  return response;
+}
+
+function setPaginationState(totalItems) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  prevPageBtn.disabled = currentPage <= 1;
+  nextPageBtn.disabled = currentPage >= totalPages;
+  pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+}
+
+function getPaginatedData(list) {
+  const start = (currentPage - 1) * pageSize;
+  return list.slice(start, start + pageSize);
+}
+
+function renderExpenses(list) {
+  const propertyId = propertySelect.value;
+  expensesTableBody.innerHTML = "";
+  if (!Array.isArray(list) || list.length === 0) {
+    expensesTableBody.innerHTML = '<tr><td colspan="7">No expenses found.</td></tr>';
+    setPaginationState(0);
+    return;
+  }
+
+  setPaginationState(list.length);
+  const pageData = getPaginatedData(list);
+
+  pageData.forEach(e => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+  <td>${e.PropertyName || propertyId}</td>
+  <td>${e.Category || ""}</td>
+  <td>${e.Amount ?? ""}</td>
+  <td>${e.ExpenseDate || ""}</td>
+  <td>${e.Transaction || ""}</td>
+  <td>${e.Description || ""}</td>
+  <td>${
+    e.DocumentId
+      ? `<button type="button" onclick="downloadBill('${e.DocumentId}')">Download</button>`
+      : ""
+  }</td>
+`;
+    expensesTableBody.appendChild(row);
+  });
+}
+
+function getSortValue(item, key, type) {
+  const propertyId = propertySelect.value;
+  let value = key === "PropertyName" ? (item.PropertyName || propertyId || "") : item[key];
+
+  if (value === undefined || value === null) value = "";
+
+  if (type === "number") {
+    const numeric = Number(value);
+    return Number.isNaN(numeric) ? Number.NEGATIVE_INFINITY : numeric;
+  }
+  if (type === "date") {
+    const time = value ? new Date(value).getTime() : 0;
+    return Number.isNaN(time) ? 0 : time;
+  }
+  return String(value).toLowerCase();
+}
+
+function getSortedExpenses(list, key, order, type) {
+  return [...list].sort((a, b) => {
+    const aVal = getSortValue(a, key, type);
+    const bVal = getSortValue(b, key, type);
+    if (aVal < bVal) return order === "asc" ? -1 : 1;
+    if (aVal > bVal) return order === "asc" ? 1 : -1;
+    return 0;
+  });
+}
+
+function getDisplayValue(item, key, fallbackPropertyId) {
+  if (key === "PropertyName") return item.PropertyName || fallbackPropertyId || "";
+  const value = item[key];
+  if (value === undefined || value === null) return "";
+  return String(value);
+}
+
+function getExportData() {
+  const list = sortState.key
+    ? getSortedExpenses(lastExpensesData, sortState.key, sortState.order, document.querySelector(`#expensesTable thead th.sortable[data-key="${sortState.key}"]`)?.dataset.type || "text")
+    : [...lastExpensesData];
+  return list;
+}
+
+function getDisplayList() {
+  return sortState.key
+    ? getSortedExpenses(lastExpensesData, sortState.key, sortState.order, document.querySelector(`#expensesTable thead th.sortable[data-key="${sortState.key}"]`)?.dataset.type || "text")
+    : [...lastExpensesData];
+}
+
+function sortExpenses(key, type, headerEl) {
+  const order = sortState.key === key && sortState.order === "asc" ? "desc" : "asc";
+  sortState = { key, order };
+  currentPage = 1;
+
+  document.querySelectorAll("#expensesTable thead th.sortable").forEach(th => th.removeAttribute("data-order"));
+  headerEl.setAttribute("data-order", order);
+
+  const sorted = getSortedExpenses(lastExpensesData, key, order, type);
+  renderExpenses(sorted);
+}
+
+function ensureHeaderHandlers() {
+  document.querySelectorAll("#expensesTable thead th.sortable").forEach(th => {
+    if (th.dataset.bound === "true") return;
+    th.dataset.bound = "true";
+    th.addEventListener("click", () => {
+      if (!lastExpensesData.length) return;
+      const key = th.dataset.key;
+      const type = th.dataset.type || "text";
+      sortExpenses(key, type, th);
+    });
+  });
+}
+
+function downloadBlob(blob, filename) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function exportCsvWithData(data, filename) {
+  const propertyId = propertySelect.value;
+  const header = expenseColumns.map(col => col.label).join(",");
+  const rows = data.map(item => {
+    return expenseColumns
+      .map(col => {
+        const raw = getDisplayValue(item, col.key, propertyId);
+        const escaped = raw.replace(/"/g, '""');
+        return `"${escaped}"`;
+      })
+      .join(",");
+  });
+
+  const csvContent = [header, ...rows].join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  downloadBlob(blob, filename);
+}
+
+function exportPdfWithData(data, title) {
+  const propertyId = propertySelect.value;
+  const headers = expenseColumns.map(col => col.label);
+  const rows = data.map(item => expenseColumns.map(col => getDisplayValue(item, col.key, propertyId)));
+
+  const tableHtml = `
+    <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #222; }
+          h1 { margin: 0 0 16px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #ccc; padding: 8px; font-size: 12px; }
+          th { background: #f0f0f0; text-align: left; }
+          footer { margin-top: 24px; text-align: center; font-size: 12px; color: #555; }
+        </style>
+      </head>
+      <body>
+        <h1>${title}</h1>
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+        <footer>&copy; ${new Date().getFullYear()} Anaviche AG. All rights reserved.</footer>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    alert("Pop-up blocked. Please allow pop-ups to export PDF.");
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(tableHtml);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
+function exportCsv() {
+  const data = getExportData();
+  exportCsvWithData(data, "expenses.csv");
+}
+
+function exportPdf() {
+  const data = getExportData();
+  exportPdfWithData(data, "Expenses");
+}
+
+function getSwissYearRange(year) {
+  const start = new Date(Date.UTC(year, 0, 1, 0, 0, 0));
+  const end = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+  return { start, end };
+}
+
+function getDateFilterRange(year, useCustomRange) {
+  const { start, end } = getSwissYearRange(year);
+  if (!useCustomRange) return { start, end };
+  const fromValue = reportFrom.value ? new Date(`${reportFrom.value}T00:00:00`) : null;
+  const toValue = reportTo.value ? new Date(`${reportTo.value}T23:59:59.999`) : null;
+  return {
+    start: fromValue || start,
+    end: toValue || end
+  };
+}
+
+function getJahresrechnungData(year, useCustomRange) {
+  const { start, end } = getDateFilterRange(year, useCustomRange);
+  return getExportData()
+    .filter(item => {
+      if (!item.ExpenseDate) return false;
+      const date = new Date(item.ExpenseDate);
+      if (Number.isNaN(date.getTime())) return false;
+      const transactionType = String(item.Transaction || "").toLowerCase();
+      if (!transactionType || transactionType === "informative") return false;
+      if (transactionType !== "debit" && transactionType !== "credit") return false;
+      return date >= start && date <= end;
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.ExpenseDate).getTime();
+      const bTime = new Date(b.ExpenseDate).getTime();
+      return bTime - aTime;
+    });
+}
+
+// ---------------- Load properties ----------------
+async function loadProperties() {
+  propertySelect.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const res = await authFetch(propertiesApi);
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    const data = await res.json();
+    propertySelect.innerHTML = '<option value="">Select property</option>';
+    data.forEach(p => {
+      const option = document.createElement("option");
+      option.value = p.RowKey;
+      option.textContent = p.Name || p.RowKey;
+      propertySelect.appendChild(option);
+    });
+  } catch(e) {
+    debugOutput.textContent = "Failed to load properties: " + e;
+    propertySelect.innerHTML = '<option value="">Select property</option>';
+  }
+}
+
+// ---------------- Load expenses ----------------
+async function loadExpenses() {
+  const propertyId = propertySelect.value;
+  if(!propertyId) {
+    expensesTableBody.innerHTML = '<tr><td colspan="7">Select a property to view expenses.</td></tr>';
+    return;
+  }
+
+  expensesTableBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+
+  try {
+    const expensesUrl = new URL(expensesApi);
+    expensesUrl.searchParams.set("propertyId", propertyId);
+    debugOutput.textContent = "Fetching: " + expensesUrl.toString();
+
+    const res = await authFetch(expensesUrl.toString());
+
+    debugOutput.textContent += "\nStatus: " + res.status;
+
+    if (!res.ok) {
+      expensesTableBody.innerHTML = '<tr><td colspan="7">API Error</td></tr>';
+      if (apiResponse) {
+        apiResponse.textContent = `API Error: ${res.status}`;
+      }
+      debugOutput.textContent += "\nFetch failed.";
+      return;
+    }
+
+    const data = await res.json();
+    lastExpensesData = Array.isArray(data) ? data : [];
+    if (apiResponse) {
+      apiResponse.style.display = "block";
+      apiResponse.textContent = JSON.stringify(lastExpensesData, null, 2);
+    }
+    debugOutput.textContent += "\nData loaded: " + JSON.stringify(lastExpensesData);
+
+    if (sortState.key) {
+      const headerEl = document.querySelector(`#expensesTable thead th.sortable[data-key="${sortState.key}"]`);
+      const type = headerEl?.dataset.type || "text";
+      const sorted = getSortedExpenses(lastExpensesData, sortState.key, sortState.order, type);
+      if (headerEl) headerEl.setAttribute("data-order", sortState.order);
+      renderExpenses(sorted);
+    } else {
+      renderExpenses(lastExpensesData);
+    }
+
+    ensureHeaderHandlers();
+
+  } catch (err) {
+    expensesTableBody.innerHTML = '<tr><td colspan="7">Failed to load expenses</td></tr>';
+    debugOutput.textContent = "Error in loadExpenses(): " + err + "\n" + err.stack;
+  }
+}
+
+async function downloadBill(documentId) {
+  try {
+    const propertyId = propertySelect.value;
+    const expense = lastExpensesData.find(item => item.DocumentId === documentId) || {};
+    const docIdCandidate = expense.DocumentId || documentId;
+    const blobIdCandidate = expense.BlobName || expense.BlobId || expense.Blob || expense.BillBlob || expense.BillBlobName || documentId;
+
+    debugOutput.textContent = "Downloading bill: " + documentId;
+    debugOutput.textContent += "\nExpense fields: " + JSON.stringify(expense);
+
+    const buildUrl = (paramName, value) => {
+      const url = new URL(billsDownloadApi);
+      url.searchParams.set(paramName, value);
+      if (propertyId) url.searchParams.set("propertyId", propertyId);
+      return url.toString();
+    };
+
+    let url = buildUrl("blob", blobIdCandidate);
+    debugOutput.textContent += "\nURL: " + url;
+    let res = await authFetch(url);
+    debugOutput.textContent += "\nStatus: " + res.status;
+
+    if (!res.ok) {
+      const firstError = await res.text();
+      debugOutput.textContent += "\nResponse: " + firstError;
+      url = buildUrl("documentId", docIdCandidate);
+      debugOutput.textContent += "\nRetry URL: " + url;
+      res = await authFetch(url);
+      debugOutput.textContent += "\nRetry Status: " + res.status;
+    }
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      debugOutput.textContent += "\nRetry Response: " + errorText;
+      if (propertyId) {
+        url = `${docsApi}?propertyId=${encodeURIComponent(propertyId)}&documentId=${encodeURIComponent(docIdCandidate)}`;
+        debugOutput.textContent += "\nDoc URL: " + url;
+        res = await authFetch(url);
+        debugOutput.textContent += "\nDoc Status: " + res.status;
+      }
+    }
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      debugOutput.textContent += "\nDoc Response: " + errorText;
+      throw new Error(`Download failed (${res.status})`);
+    }
+
+    const blob = await res.blob();
+    const contentDisposition = res.headers.get("Content-Disposition");
+    let filename = expense.FileName || expense.DocumentName || "bill";
+    if (contentDisposition && contentDisposition.includes("filename=")) {
+      filename = contentDisposition.split("filename=")[1].replace(/"/g, "");
+    }
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (err) {
+    debugOutput.textContent += "\nDownload failed: " + err;
+    alert("Download failed");
+  }
+}
+
+// ---------------- Save expense ----------------
+expenseForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const propertyId = propertySelect.value;
+  if(!propertyId) { alert("Select a property"); return; }
+
+  const formData = new FormData();
+  formData.append("propertyId", propertyId);
+  formData.append("category", document.getElementById("category").value);
+  formData.append("amount", document.getElementById("amount").value);
+  formData.append("expenseDate", document.getElementById("expenseDate").value);
+  formData.append("transaction", document.getElementById("transactionType").value);
+  formData.append("description", document.getElementById("description").value);
+  const billFile = document.getElementById("billFile").files[0];
+  if(billFile) formData.append("bill", billFile);
+
+  try {
+    const res = await authFetch(expensesApi, { method: "POST", body: formData });
+    if(!res.ok) throw new Error("Failed to save expense");
+    expenseForm.reset();
+    loadExpenses();
+  } catch(e) {
+    debugOutput.textContent = "Error saving expense: " + e;
+  }
+});
+
+// ---------------- Refresh expenses when property changes ----------------
+propertySelect.addEventListener("change", loadExpenses);
+
+ensureHeaderHandlers();
+
+prevPageBtn.addEventListener("click", () => {
+  if (currentPage > 1) {
+    currentPage -= 1;
+    renderExpenses(getDisplayList());
+  }
+});
+
+nextPageBtn.addEventListener("click", () => {
+  const totalPages = Math.max(1, Math.ceil(getDisplayList().length / pageSize));
+  if (currentPage < totalPages) {
+    currentPage += 1;
+    renderExpenses(getDisplayList());
+  }
+});
+
+yearInput.value = new Date().getFullYear();
+
+exportAnnualBtn.addEventListener("click", () => {
+  if (!lastExpensesData.length) { alert("No expenses to export."); return; }
+  const year = Number(yearInput.value);
+  if (!year) { alert("Enter a valid year."); return; }
+  const data = getJahresrechnungData(year, false);
+  if (!data.length) { alert("No expenses for this year."); return; }
+  if (annualFormat.value === "pdf") {
+    exportPdfWithData(data, `Annual Expense Report ${year}`);
+  } else {
+    exportCsvWithData(data, `annual-expense-report-${year}.csv`);
+  }
+});
+
+exportCustomBtn.addEventListener("click", () => {
+  if (!lastExpensesData.length) { alert("No expenses to export."); return; }
+  const year = Number(yearInput.value);
+  if (!year) { alert("Enter a valid year."); return; }
+  const data = getJahresrechnungData(year, true);
+  if (!data.length) { alert("No expenses for this period."); return; }
+  if (customFormat.value === "pdf") {
+    exportPdfWithData(data, "Custom Period Expense Report");
+  } else {
+    exportCsvWithData(data, "custom-period-expense-report.csv");
+  }
+});
+
+signInBtn.disabled = false;
+signInBtn.style.pointerEvents = "auto";
+signInBtn.addEventListener("click", () => {
+  debugOutput.textContent = "Sign in clicked";
+  signIn();
+});
+signOutBtn.addEventListener("click", signOut);
+
+// ---------------- Initial load ----------------
+handleMsalRedirect().then(() => {
+  if (!msalInstance) return;
+  const account = msalInstance.getActiveAccount();
+  if (account) {
+    loadProperties();
+  }
+});
+</script>
+</body>
+</html>
