@@ -80,6 +80,14 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # With OIDC (no publish profile) the action deploys via WEBSITE_RUN_FROM_PACKAGE,
+      # which skips the remote Oryx build, so dependencies must ship inside the zip.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies into the package
+        run: pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+
       - uses: azure/login@v3
         with:
           client-id: ${{ env.AZURE_CLIENT_ID }}
@@ -92,8 +100,8 @@ jobs:
           app-name: ${{ steps.target.outputs.app }}
           package: .
           respect-funcignore: true
-          scm-do-build-during-deployment: true
-          enable-oryx-build: true
+          scm-do-build-during-deployment: false
+          enable-oryx-build: false
 
       - name: Smoke test (read-only GET /api/properties)
         run: |
