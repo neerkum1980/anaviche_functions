@@ -21,7 +21,8 @@ export function Nav() {
       <NavLink to="/about">{t.nav.about}</NavLink>
       <NavLink to="/properties">{t.nav.properties}</NavLink>
       <NavLink to="/analytics">{t.nav.analytics}</NavLink>
-      <NavLink to="/manage">{t.nav.manage}</NavLink>
+      {/* Full page load, so Cloudflare Access (which protects this page in prod) sees the request. */}
+      <NavLink to="/manage" reloadDocument>{t.nav.manage}</NavLink>
       <NavLink to="/accounting">{t.nav.accounting}</NavLink>
       <div className="lang-switch">
         <button type="button" onClick={() => setLang(lang === "de" ? "en" : "de")}>{t.switchTo}</button>
