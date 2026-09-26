@@ -12,7 +12,6 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "mcp_server/**"
       - ".claude/**"
       - ".mcp.json"
       - "**/*.md"
@@ -134,6 +133,18 @@ jobs:
                 failed=1
               fi
             done <<< "$checks"
+
+            # McpServer speaks JSON-RPC over POST; tools/list must return the tool set.
+            code=$(curl -s -o body.txt -w "%{http_code}" --max-time 60 -X POST "https://$host/api/mcp" \
+              -H "x-functions-key: $key" -H "Content-Type: application/json" \
+              -H "Accept: application/json, text/event-stream" \
+              -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' || echo "000")
+            if [ "$code" = "200" ] && grep -q '"list_properties"' body.txt; then
+              printf "  ok    %-20s %s\n" "McpServer" "$code"
+            else
+              printf "  FAIL  %-20s got %s, want 200 with tools\n" "McpServer" "$code"
+              failed=1
+            fi
             return $failed
           }
 

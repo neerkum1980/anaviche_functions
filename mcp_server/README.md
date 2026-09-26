@@ -22,7 +22,10 @@ It calls the functions over HTTP rather than reading storage directly. As a resu
 
 The `gateway` function is a proxy, not a separate API. To route every call through it, set `ANAVICHE_BASE_URL` to `https://<host>/api/gateway`.
 
-Uploads read a file from the machine running the server. Downloads save a file there and return its path.
+It runs in two modes:
+
+- **Hosted**, inside the Function App as the `McpServer` function at `https://<app host>/api/mcp`. It deploys to test and production with the rest of the app. File tools take and return base64 content (5 MB max), because a path would refer to the Function App's own disk.
+- **Local**, as a stdio process on your machine. File tools read local paths for uploads and save downloads to disk.
 
 ## Setup
 
@@ -31,7 +34,7 @@ python3.12 -m venv mcp_server/.venv
 mcp_server/.venv/bin/pip install -r mcp_server/requirements.txt
 ```
 
-The server has its own venv and requirements file, and `.funcignore` excludes this folder. It is never deployed with the Function App.
+This venv is only for running the server locally. The hosted version uses the Function App's own `requirements.txt`, which also lists `mcp` and `httpx`.
 
 ## Configuration
 
@@ -43,7 +46,17 @@ The server has its own venv and requirements file, and `.funcignore` excludes th
 | `ANAVICHE_DOWNLOAD_DIR` | `~/Downloads/anaviche` | Where downloads are saved |
 | `ANAVICHE_TIMEOUT` | `60` | Request timeout in seconds |
 
-## Using it
+## Using the hosted server
+
+Point any MCP client that supports streamable HTTP at the Function App, sending the app's function key:
+
+```sh
+claude mcp add --transport http anaviche-test https://anaviche-functions-test-y1.azurewebsites.net/api/mcp --header "x-functions-key: <test app function key>"
+```
+
+The endpoint is stateless and returns plain JSON. The function key protects it like the other APIs, and requests with a Host header other than the app's own are rejected (DNS-rebinding protection).
+
+## Using it locally
 
 **Claude Code:** the repo's `.mcp.json` registers the server as `anaviche`. Export the variables above in your shell, then start Claude Code from the repo root and approve the server when prompted.
 

@@ -26,7 +26,7 @@ You are a coding agent working in `anaviche-functions`, an Azure Functions app w
 - Match the surrounding style: plain functions, module-level constants in UPPER_CASE, `logging` for diagnostics, and no new frameworks.
 - If you add a dependency, add it to `requirements.txt`.
 - When you change a route or method list in `function.json`, check whether `gateway` callers or other functions depend on it.
-- `mcp_server/server.py` wraps every endpoint as an MCP tool. When you add or change an endpoint's route, methods or parameters, update the matching tool and the table in `mcp_server/README.md`. The server has its own venv (`mcp_server/.venv`) and is excluded from deployment by `.funcignore`.
+- `mcp_server/server.py` wraps every endpoint as an MCP tool. When you add or change an endpoint's route, methods or parameters, update the matching tool and the table in `mcp_server/README.md`. It is also served from the Function App by the `McpServer` function (`/api/mcp`), which imports `build_server(hosted=True)`, so tool changes deploy with the app. `mcp_server/.venv` is only for running it locally.
 
 ## Verifying changes
 
