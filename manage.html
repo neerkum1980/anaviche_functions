@@ -172,6 +172,8 @@ const signInBtn = document.getElementById("signInBtn");
 const signOutBtn = document.getElementById("signOutBtn");
 const authUser = document.getElementById("authUser");
 let accessToken = "";
+// The test site runs without login: the test API accepts anonymous calls.
+const AUTH_DISABLED = window.location.hostname === "wonderful-sea-066c76e03.7.azurestaticapps.net";
 let selectedProperty = null;
 
 tableBody.addEventListener("click", (event) => {
@@ -263,6 +265,7 @@ async function getAccessToken() {
 }
 
 async function authFetch(url, options = {}) {
+  if (AUTH_DISABLED) return fetch(url, options);
   const token = await getAccessToken();
   const headers = new Headers(options.headers || {});
   const debugOutput = document.getElementById("debugOutput");
@@ -539,13 +542,20 @@ signInBtn.addEventListener("click", () => {
 signOutBtn.addEventListener("click", signOut);
 
 // ------------------ INITIAL LOAD ------------------
-handleMsalRedirect().then(() => {
-  if (!msalInstance) return;
-  const account = msalInstance.getActiveAccount();
-  if (account) {
-    loadProperties();
-  }
-});
+if (AUTH_DISABLED) {
+  authUser.textContent = "Test mode (no login)";
+  signInBtn.hidden = true;
+  signOutBtn.hidden = true;
+  loadProperties();
+} else {
+  handleMsalRedirect().then(() => {
+    if (!msalInstance) return;
+    const account = msalInstance.getActiveAccount();
+    if (account) {
+      loadProperties();
+    }
+  });
+}
 
 </script>
 </body>

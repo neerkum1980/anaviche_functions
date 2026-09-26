@@ -118,6 +118,8 @@ const signOutBtn = document.getElementById("signOutBtn");
 const authUser = document.getElementById("authUser");
 const debugOutput = document.getElementById("debugOutput");
 let accessToken = "";
+// The test site runs without login: the test API accepts anonymous calls.
+const AUTH_DISABLED = window.location.hostname === "wonderful-sea-066c76e03.7.azurestaticapps.net";
 let msalReady = false;
 
 async function loadMsalScript(src) {
@@ -235,6 +237,7 @@ async function getAccessToken() {
 }
 
 async function authFetch(url, options = {}) {
+  if (AUTH_DISABLED) return fetch(url, options);
   const token = await getAccessToken();
   const headers = new Headers(options.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -278,6 +281,13 @@ signInBtn.addEventListener("click", signIn);
 signOutBtn.addEventListener("click", signOut);
 
 window.addEventListener("load", () => {
+  if (AUTH_DISABLED) {
+    authUser.textContent = "Test mode (no login)";
+    signInBtn.hidden = true;
+    signOutBtn.hidden = true;
+    loadProperties();
+    return;
+  }
   initMsal().then(() => {
     handleMsalRedirect().then(() => {
       if (!msalInstance) return;
