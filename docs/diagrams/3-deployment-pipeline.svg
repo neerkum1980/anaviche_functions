@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="d" viewBox="0 0 1100 740" width="1100" height="740" role="img" aria-labelledby="t d">
+<title id="t">anaviche-functions: Deployment pipeline</title>
+<desc id="d">Deployment pipeline sequence. The GitHub Actions runner checks out the commit and installs dependencies into .python_packages. It requests an ID token from GitHub OIDC and exchanges it with Entra ID for an access token. It zips the repo minus .funcignore paths, reads the app settings from Azure Resource Manager to get the storage connection string, uploads the zip to the github-actions-deploy container, and sets WEBSITE_RUN_FROM_PACKAGE to the zip's SAS URL. Resource Manager restarts the Function App, which mounts the zip read-only. The runner then lists the function keys and calls each of the five functions until every one returns its expected status.</desc>
+<style>
+:root, svg {
+  --surface: #FFFFFF; --zone: #E8EDEA; --ink: #15201C; --ink-2: #4B5A54;
+  --line: #BFCAC5; --accent: #0A6B63; --manual: #9C5B08;
+  --font-body: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  svg {
+    --surface: #151D1A; --zone: #1B2521; --ink: #E2EAE6; --ink-2: #9DACA6;
+    --line: #36443F; --accent: #4CC3B5; --manual: #E3A24B;
+  }
+}
+.bg { fill: var(--surface); }
+  text { font-family: var(--font-body); font-size: 12px; fill: var(--ink); }
+  .ttl { font-weight: 600; font-size: 13px; }
+  .mttl { font-family: var(--font-mono); font-weight: 600; font-size: 12.5px; }
+  .mono { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-2); }
+  .sm { font-size: 11px; fill: var(--ink-2); }
+  .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; fill: var(--ink-2); }
+  .tag { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-2); }
+  .t-acc { fill: var(--accent); }
+  .t-man { fill: var(--manual); }
+  .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.25; }
+  .box.acc { stroke: var(--accent); stroke-width: 2; }
+  .box.man { stroke: var(--manual); stroke-width: 2; }
+  .box.ghost { fill: none; stroke-dasharray: 5 4; }
+  .zone { fill: var(--zone); stroke: var(--line); stroke-width: 1; }
+  .zone.open { fill: none; stroke-dasharray: 6 5; }
+  .edge { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+  .edge.acc { stroke: var(--accent); stroke-width: 1.8; }
+  .edge.man { stroke: var(--manual); stroke-width: 1.8; stroke-dasharray: 6 4; }
+  .edge.dash { stroke-dasharray: 4 4; }
+  .dot { fill: var(--ink-2); }
+  .life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 5; }
+  .box.note { fill: var(--zone); }
+  .on { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .ah { fill: var(--ink-2); }
+  .ah-acc { fill: var(--accent); }
+  .ah-man { fill: var(--manual); }
+</style>
+<rect class="bg" x="0" y="0" width="1100" height="740"/>
+          <defs>
+            <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="a4acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-acc" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+
+          <!-- Lifelines -->
+          <line class="life" x1="110" y1="70" x2="110" y2="728"/>
+          <line class="life" x1="330" y1="70" x2="330" y2="728"/>
+          <line class="life" x1="500" y1="70" x2="500" y2="728"/>
+          <line class="life" x1="670" y1="70" x2="670" y2="728"/>
+          <line class="life" x1="840" y1="70" x2="840" y2="728"/>
+          <line class="life" x1="1010" y1="70" x2="1010" y2="728"/>
+
+          <!-- Participants -->
+          <rect class="box" x="35" y="16" width="150" height="54" rx="4"/>
+          <text class="ttl" x="110" y="39" text-anchor="middle">GitHub Actions</text>
+          <text class="sm" x="110" y="57" text-anchor="middle">ubuntu runner</text>
+          <rect class="box" x="255" y="16" width="150" height="54" rx="4"/>
+          <text class="ttl" x="330" y="39" text-anchor="middle">GitHub OIDC</text>
+          <text class="sm" x="330" y="57" text-anchor="middle">token issuer</text>
+          <rect class="box" x="425" y="16" width="150" height="54" rx="4"/>
+          <text class="ttl" x="500" y="39" text-anchor="middle">Entra ID</text>
+          <text class="sm" x="500" y="57" text-anchor="middle">deploy identity</text>
+          <rect class="box" x="595" y="16" width="150" height="54" rx="4"/>
+          <text class="ttl" x="670" y="39" text-anchor="middle">Resource Manager</text>
+          <text class="sm" x="670" y="57" text-anchor="middle">Azure control plane</text>
+          <rect class="box" x="765" y="16" width="150" height="54" rx="4"/>
+          <text class="ttl" x="840" y="39" text-anchor="middle">Storage account</text>
+          <text class="mono" x="840" y="57" text-anchor="middle">AzureWebJobsStorage</text>
+          <rect class="box acc" x="935" y="16" width="150" height="54" rx="4"/>
+          <text class="ttl t-acc" x="1010" y="39" text-anchor="middle">Function App</text>
+          <text class="sm" x="1010" y="57" text-anchor="middle">test or production</text>
+
+          <!-- Build -->
+          <rect class="box note" x="40" y="86" width="200" height="46" rx="3"/>
+          <text class="sm" x="52" y="105">checkout + Python 3.12</text>
+          <text class="mono" x="52" y="122">pip → .python_packages</text>
+
+          <!-- Login -->
+          <line class="edge" x1="110" y1="160" x2="327" y2="160" marker-end="url(#a4)"/>
+          <text class="sm on" x="220" y="153" text-anchor="middle">request ID token</text>
+          <line class="edge dash" x1="330" y1="188" x2="113" y2="188" marker-end="url(#a4)"/>
+          <text class="sm on" x="220" y="181" text-anchor="middle">JWT naming the environment</text>
+          <line class="edge" x1="110" y1="226" x2="497" y2="226" marker-end="url(#a4)"/>
+          <text class="sm on" x="305" y="219" text-anchor="middle">exchange JWT (federated credential)</text>
+          <line class="edge dash" x1="500" y1="254" x2="113" y2="254" marker-end="url(#a4)"/>
+          <text class="sm on" x="305" y="247" text-anchor="middle">access token, Website Contributor</text>
+
+          <!-- Package -->
+          <rect class="box note" x="40" y="272" width="200" height="46" rx="3"/>
+          <text class="sm" x="52" y="291">zip the repo</text>
+          <text class="sm" x="52" y="308">minus .funcignore paths</text>
+
+          <line class="edge" x1="110" y1="346" x2="667" y2="346" marker-end="url(#a4)"/>
+          <text class="sm on" x="390" y="339" text-anchor="middle">read app settings</text>
+          <line class="edge dash" x1="670" y1="374" x2="113" y2="374" marker-end="url(#a4)"/>
+          <text class="sm on" x="390" y="367" text-anchor="middle">storage connection string</text>
+
+          <!-- Ship -->
+          <line class="edge acc" x1="110" y1="412" x2="837" y2="412" marker-end="url(#a4acc)"/>
+          <text class="sm on t-acc" x="475" y="405" text-anchor="middle">upload Functionapp_&lt;time&gt;.zip to container github-actions-deploy</text>
+          <line class="edge acc" x1="110" y1="450" x2="667" y2="450" marker-end="url(#a4acc)"/>
+          <text class="sm on t-acc" x="390" y="443" text-anchor="middle">set WEBSITE_RUN_FROM_PACKAGE = zip SAS URL (valid 1 year)</text>
+          <line class="edge" x1="670" y1="488" x2="1007" y2="488" marker-end="url(#a4)"/>
+          <text class="sm on" x="755" y="481" text-anchor="middle">restart app</text>
+          <line class="edge acc" x1="1010" y1="526" x2="843" y2="526" marker-end="url(#a4acc)"/>
+          <text class="sm on t-acc" x="925" y="519" text-anchor="middle">mount zip read-only</text>
+          <rect class="box note" x="930" y="542" width="160" height="46" rx="3"/>
+          <text class="sm" x="942" y="561">no build on Azure:</text>
+          <text class="sm" x="942" y="578">runs the zip as shipped</text>
+
+          <!-- Verify -->
+          <line class="edge" x1="110" y1="620" x2="667" y2="620" marker-end="url(#a4)"/>
+          <text class="sm on" x="390" y="613" text-anchor="middle">list function keys</text>
+          <line class="edge dash" x1="670" y1="648" x2="113" y2="648" marker-end="url(#a4)"/>
+          <text class="sm on" x="390" y="641" text-anchor="middle">default key (masked in logs)</text>
+          <line class="edge" x1="110" y1="686" x2="1007" y2="686" marker-end="url(#a4)"/>
+          <text class="sm on" x="560" y="679" text-anchor="middle">one read-only GET per function (5)</text>
+          <line class="edge dash" x1="1010" y1="714" x2="113" y2="714" marker-end="url(#a4)"/>
+          <text class="sm on" x="560" y="707" text-anchor="middle">each returns its expected status → run passes</text>
+        </svg>

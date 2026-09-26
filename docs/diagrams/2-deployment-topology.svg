@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="d" viewBox="0 0 1100 510" width="1100" height="510" role="img" aria-labelledby="t d">
+<title id="t">anaviche-functions: Deployment topology</title>
+<desc id="d">Deployment topology. GitHub logs in to Azure through the Entra ID app anaviche-functions-github-deploy using OIDC. Pushes to main deploy automatically to anaviche-functions-test-y1 in resource group AnavicheRG-test, which uses storage accounts anavichetestmain and anavichetestaudit and sends telemetry to Application Insights. Manual runs deploy to anaviche-functions in AnavicheRG, which uses anavichergaf47 and anavicheagauditstorage, has App Service authentication on, an unused staging slot, and no Application Insights.</desc>
+<style>
+:root, svg {
+  --surface: #FFFFFF; --zone: #E8EDEA; --ink: #15201C; --ink-2: #4B5A54;
+  --line: #BFCAC5; --accent: #0A6B63; --manual: #9C5B08;
+  --font-body: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  svg {
+    --surface: #151D1A; --zone: #1B2521; --ink: #E2EAE6; --ink-2: #9DACA6;
+    --line: #36443F; --accent: #4CC3B5; --manual: #E3A24B;
+  }
+}
+.bg { fill: var(--surface); }
+  text { font-family: var(--font-body); font-size: 12px; fill: var(--ink); }
+  .ttl { font-weight: 600; font-size: 13px; }
+  .mttl { font-family: var(--font-mono); font-weight: 600; font-size: 12.5px; }
+  .mono { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-2); }
+  .sm { font-size: 11px; fill: var(--ink-2); }
+  .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; fill: var(--ink-2); }
+  .tag { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-2); }
+  .t-acc { fill: var(--accent); }
+  .t-man { fill: var(--manual); }
+  .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.25; }
+  .box.acc { stroke: var(--accent); stroke-width: 2; }
+  .box.man { stroke: var(--manual); stroke-width: 2; }
+  .box.ghost { fill: none; stroke-dasharray: 5 4; }
+  .zone { fill: var(--zone); stroke: var(--line); stroke-width: 1; }
+  .zone.open { fill: none; stroke-dasharray: 6 5; }
+  .edge { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+  .edge.acc { stroke: var(--accent); stroke-width: 1.8; }
+  .edge.man { stroke: var(--manual); stroke-width: 1.8; stroke-dasharray: 6 4; }
+  .edge.dash { stroke-dasharray: 4 4; }
+  .dot { fill: var(--ink-2); }
+  .life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 5; }
+  .box.note { fill: var(--zone); }
+  .on { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .ah { fill: var(--ink-2); }
+  .ah-acc { fill: var(--accent); }
+  .ah-man { fill: var(--manual); }
+</style>
+<rect class="bg" x="0" y="0" width="1100" height="510"/>
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="a2acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-acc" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="a2man" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-man" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+
+          <!-- GitHub -->
+          <rect class="box" x="20" y="20" width="340" height="100" rx="4"/>
+          <text class="ttl" x="36" y="46">GitHub</text>
+          <text class="mono" x="36" y="66">neerkum1980/anaviche_functions</text>
+          <text class="mono" x="36" y="84">.github/workflows/deploy.yml</text>
+          <text class="sm" x="36" y="104">environments: test, production</text>
+
+          <!-- Entra -->
+          <rect class="box" x="740" y="20" width="340" height="100" rx="4"/>
+          <text class="ttl" x="756" y="46">Entra ID app registration</text>
+          <text class="mono" x="756" y="66">anaviche-functions-github-deploy</text>
+          <text class="sm" x="756" y="84">trusts this repo's test and production environments</text>
+          <text class="sm" x="756" y="104">Website Contributor on the two apps below only</text>
+
+          <line class="edge" x1="360" y1="70" x2="737" y2="70" marker-end="url(#a2)"/>
+          <text class="sm" x="550" y="62" text-anchor="middle">OIDC token exchange, no stored secret</text>
+
+          <!-- Deploy edges -->
+          <line class="edge acc" x1="170" y1="120" x2="170" y2="211" marker-end="url(#a2acc)"/>
+          <text class="sm t-acc" x="180" y="148">push to main</text>
+          <text class="sm t-acc" x="180" y="162">deploys automatically</text>
+          <polyline class="edge man" points="330,120 330,142 700,142 700,211" marker-end="url(#a2man)"/>
+          <text class="sm t-man" x="515" y="135" text-anchor="middle">Run workflow → production (manual)</text>
+
+          <!-- Test RG -->
+          <rect class="zone" x="20" y="176" width="520" height="324" rx="6"/>
+          <text class="lbl" x="36" y="198">AnavicheRG-test · France Central</text>
+
+          <rect class="box acc" x="40" y="214" width="260" height="86" rx="4"/>
+          <text class="mttl" x="56" y="240">anaviche-functions-test-y1</text>
+          <text class="sm" x="56" y="260">Linux Consumption (Y1)</text>
+          <text class="sm" x="56" y="278">Python 3.12</text>
+
+          <rect class="box" x="320" y="214" width="200" height="86" rx="4"/>
+          <text class="ttl" x="334" y="240">Application Insights</text>
+          <text class="mono" x="334" y="260">anaviche-functions-test-ai</text>
+          <text class="sm" x="334" y="280">receives telemetry</text>
+          <line class="edge" x1="300" y1="257" x2="317" y2="257" marker-end="url(#a2)"/>
+
+          <rect class="box" x="40" y="366" width="160" height="80" rx="4"/>
+          <text class="mttl" x="52" y="390">anavichetestmain</text>
+          <text class="sm" x="52" y="410">tables, bills,</text>
+          <text class="sm" x="52" y="426">documents</text>
+
+          <rect class="box" x="214" y="366" width="160" height="80" rx="4"/>
+          <text class="mttl" x="226" y="390">anavichetestaudit</text>
+          <text class="sm" x="226" y="410">audit-logs</text>
+
+          <rect class="box ghost" x="388" y="366" width="140" height="80" rx="4"/>
+          <text class="mttl" x="398" y="390" style="font-size:12px">anavichetestaux2</text>
+          <text class="sm" x="398" y="410">configured,</text>
+          <text class="sm" x="398" y="426">not read by code</text>
+
+          <line class="edge" x1="120" y1="300" x2="120" y2="363" marker-end="url(#a2)"/>
+          <text class="sm" x="128" y="338">data</text>
+          <line class="edge" x1="220" y1="300" x2="290" y2="363" marker-end="url(#a2)"/>
+          <text class="sm" x="262" y="326">audit</text>
+          <line class="edge dash" x1="280" y1="300" x2="450" y2="363"/>
+          <text class="sm" x="386" y="322">BILLS_STORAGE_…</text>
+
+          <!-- Prod RG -->
+          <rect class="zone" x="560" y="176" width="520" height="324" rx="6"/>
+          <text class="lbl" x="576" y="198">AnavicheRG · France Central</text>
+
+          <rect class="box man" x="580" y="214" width="260" height="86" rx="4"/>
+          <text class="mttl" x="596" y="240">anaviche-functions</text>
+          <text class="sm" x="596" y="260">Linux Consumption (Y1) · Python 3.12</text>
+          <text class="sm" x="596" y="278">App Service authentication on</text>
+
+          <rect class="box ghost" x="860" y="214" width="200" height="86" rx="4"/>
+          <text class="ttl" x="876" y="240">staging slot</text>
+          <text class="sm" x="876" y="260">exists; the pipeline</text>
+          <text class="sm" x="876" y="278">deploys to production</text>
+          <line class="edge dash" x1="840" y1="257" x2="860" y2="257"/>
+
+          <rect class="box" x="580" y="366" width="180" height="80" rx="4"/>
+          <text class="mttl" x="592" y="390">anavichergaf47</text>
+          <text class="sm" x="592" y="410">tables, bills,</text>
+          <text class="sm" x="592" y="426">documents</text>
+
+          <rect class="box" x="780" y="366" width="220" height="80" rx="4"/>
+          <text class="mttl" x="792" y="390">anavicheagauditstorage</text>
+          <text class="sm" x="792" y="410">audit-logs</text>
+
+          <line class="edge" x1="670" y1="300" x2="670" y2="363" marker-end="url(#a2)"/>
+          <text class="sm" x="678" y="338">data</text>
+          <line class="edge" x1="780" y1="300" x2="880" y2="363" marker-end="url(#a2)"/>
+          <text class="sm" x="838" y="326">audit</text>
+
+          <text class="sm" x="580" y="480">No Application Insights connection string is set on this app.</text>
+        </svg>

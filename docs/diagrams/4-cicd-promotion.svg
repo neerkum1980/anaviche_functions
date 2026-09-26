@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="d" viewBox="0 0 1096 344" width="1096" height="344" role="img" aria-labelledby="t d">
+<title id="t">anaviche-functions: CI/CD and promotion</title>
+<desc id="d">CI/CD pipeline. Automatic lane: a push to main passes a path filter, then the check job compiles and imports all five functions with Python 3.12, then the deploy job logs in with OIDC, installs dependencies into the package and deploys it to the test app as a run-from-package zip, then a smoke test calls each of the five functions and checks its expected status, and test is live. You then check test and start the manual lane with Run workflow: a branch guard requires main, then the same check, deploy to production and smoke test run, and production is live.</desc>
+<style>
+:root, svg {
+  --surface: #FFFFFF; --zone: #E8EDEA; --ink: #15201C; --ink-2: #4B5A54;
+  --line: #BFCAC5; --accent: #0A6B63; --manual: #9C5B08;
+  --font-body: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  svg {
+    --surface: #151D1A; --zone: #1B2521; --ink: #E2EAE6; --ink-2: #9DACA6;
+    --line: #36443F; --accent: #4CC3B5; --manual: #E3A24B;
+  }
+}
+.bg { fill: var(--surface); }
+  text { font-family: var(--font-body); font-size: 12px; fill: var(--ink); }
+  .ttl { font-weight: 600; font-size: 13px; }
+  .mttl { font-family: var(--font-mono); font-weight: 600; font-size: 12.5px; }
+  .mono { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-2); }
+  .sm { font-size: 11px; fill: var(--ink-2); }
+  .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; fill: var(--ink-2); }
+  .tag { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-2); }
+  .t-acc { fill: var(--accent); }
+  .t-man { fill: var(--manual); }
+  .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.25; }
+  .box.acc { stroke: var(--accent); stroke-width: 2; }
+  .box.man { stroke: var(--manual); stroke-width: 2; }
+  .box.ghost { fill: none; stroke-dasharray: 5 4; }
+  .zone { fill: var(--zone); stroke: var(--line); stroke-width: 1; }
+  .zone.open { fill: none; stroke-dasharray: 6 5; }
+  .edge { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+  .edge.acc { stroke: var(--accent); stroke-width: 1.8; }
+  .edge.man { stroke: var(--manual); stroke-width: 1.8; stroke-dasharray: 6 4; }
+  .edge.dash { stroke-dasharray: 4 4; }
+  .dot { fill: var(--ink-2); }
+  .life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 5; }
+  .box.note { fill: var(--zone); }
+  .on { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .ah { fill: var(--ink-2); }
+  .ah-acc { fill: var(--accent); }
+  .ah-man { fill: var(--manual); }
+</style>
+<rect class="bg" x="0" y="0" width="1096" height="344"/>
+          <defs>
+            <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="a3man" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-man" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+
+          <!-- Lane 1 -->
+          <text class="lbl t-acc" x="20" y="40">Automatic · every push to main</text>
+
+          <rect class="box" x="20" y="54" width="156" height="92" rx="4"/>
+          <text class="ttl" x="34" y="78">git push</text>
+          <text class="sm" x="34" y="98">branch: main</text>
+          <text class="sm" x="34" y="114">on GitHub</text>
+
+          <rect class="box" x="200" y="54" width="156" height="92" rx="4"/>
+          <text class="ttl" x="214" y="78">Path filter</text>
+          <text class="sm" x="214" y="98">skipped when only</text>
+          <text class="mono" x="214" y="114">mcp_server/ .claude/</text>
+          <text class="sm" x="214" y="130">docs/ or *.md changed</text>
+
+          <rect class="box" x="380" y="54" width="156" height="92" rx="4"/>
+          <text class="ttl" x="394" y="78">check</text>
+          <text class="sm" x="394" y="98">Python 3.12</text>
+          <text class="sm" x="394" y="114">compile + import</text>
+          <text class="sm" x="394" y="130">all 5 functions</text>
+
+          <rect class="box" x="560" y="54" width="156" height="92" rx="4"/>
+          <text class="ttl" x="574" y="78">deploy → test</text>
+          <text class="sm" x="574" y="98">OIDC login</text>
+          <text class="sm" x="574" y="114">deps built in CI,</text>
+          <text class="sm" x="574" y="130">run from package</text>
+
+          <rect class="box" x="740" y="54" width="156" height="92" rx="4"/>
+          <text class="ttl" x="754" y="78">smoke test</text>
+          <text class="sm" x="754" y="98">one GET for each</text>
+          <text class="sm" x="754" y="114">of the 5 functions</text>
+          <text class="sm" x="754" y="130">up to 10 tries</text>
+
+          <rect class="box acc" x="920" y="54" width="156" height="92" rx="4"/>
+          <text class="ttl t-acc" x="934" y="78">Test is live</text>
+          <text class="mono" x="934" y="98">anaviche-functions</text>
+          <text class="mono" x="934" y="114">-test-y1</text>
+
+          <line class="edge" x1="176" y1="100" x2="197" y2="100" marker-end="url(#a3)"/>
+          <line class="edge" x1="356" y1="100" x2="377" y2="100" marker-end="url(#a3)"/>
+          <line class="edge" x1="536" y1="100" x2="557" y2="100" marker-end="url(#a3)"/>
+          <line class="edge" x1="716" y1="100" x2="737" y2="100" marker-end="url(#a3)"/>
+          <line class="edge" x1="896" y1="100" x2="917" y2="100" marker-end="url(#a3)"/>
+
+          <!-- Promotion connector -->
+          <polyline class="edge man" points="998,146 998,186 8,186 8,284 17,284" marker-end="url(#a3man)"/>
+          <text class="sm t-man" x="548" y="178" text-anchor="middle">you check test, then Actions → Deploy Functions → Run workflow (target: production)</text>
+
+          <!-- Lane 2 -->
+          <text class="lbl t-man" x="20" y="226">Manual promotion · main only</text>
+
+          <rect class="box" x="20" y="238" width="156" height="92" rx="4"/>
+          <text class="ttl" x="34" y="262">Run workflow</text>
+          <text class="sm" x="34" y="282">GitHub Actions tab</text>
+          <text class="mono" x="34" y="298">target: production</text>
+
+          <rect class="box" x="200" y="238" width="156" height="92" rx="4"/>
+          <text class="ttl" x="214" y="262">Branch guard</text>
+          <text class="sm" x="214" y="282">stops the run unless</text>
+          <text class="sm" x="214" y="298">it started from main</text>
+
+          <rect class="box" x="380" y="238" width="156" height="92" rx="4"/>
+          <text class="ttl" x="394" y="262">check</text>
+          <text class="sm" x="394" y="282">Python 3.12</text>
+          <text class="sm" x="394" y="298">compile + import</text>
+          <text class="sm" x="394" y="314">all 5 functions</text>
+
+          <rect class="box" x="560" y="238" width="156" height="92" rx="4"/>
+          <text class="ttl" x="574" y="262">deploy → prod</text>
+          <text class="sm" x="574" y="282">OIDC login</text>
+          <text class="sm" x="574" y="298">deps built in CI,</text>
+          <text class="sm" x="574" y="314">run from package</text>
+
+          <rect class="box" x="740" y="238" width="156" height="92" rx="4"/>
+          <text class="ttl" x="754" y="262">smoke test</text>
+          <text class="sm" x="754" y="282">one GET for each</text>
+          <text class="sm" x="754" y="298">of the 5 functions</text>
+          <text class="sm" x="754" y="314">up to 10 tries</text>
+
+          <rect class="box man" x="920" y="238" width="156" height="92" rx="4"/>
+          <text class="ttl t-man" x="934" y="262">Production live</text>
+          <text class="mono" x="934" y="282">anaviche-functions</text>
+
+          <line class="edge" x1="176" y1="284" x2="197" y2="284" marker-end="url(#a3)"/>
+          <line class="edge" x1="356" y1="284" x2="377" y2="284" marker-end="url(#a3)"/>
+          <line class="edge" x1="536" y1="284" x2="557" y2="284" marker-end="url(#a3)"/>
+          <line class="edge" x1="716" y1="284" x2="737" y2="284" marker-end="url(#a3)"/>
+          <line class="edge" x1="896" y1="284" x2="917" y2="284" marker-end="url(#a3)"/>
+        </svg>

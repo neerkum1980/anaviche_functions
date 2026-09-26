@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="d" viewBox="0 0 1110 480" width="1110" height="480" role="img" aria-labelledby="t d">
+<title id="t">anaviche-functions: Runtime architecture</title>
+<desc id="d">Runtime architecture. The web frontend calls the anonymous gateway function, which forwards to four APIs with a function key. The MCP server calls the APIs directly with a key. ExpenseApi writes expense rows, bill files and, for one property, an audit copy to a separate audit storage account. BillsDownloadApi reads bill files. PropertiesAPI reads and writes the Properties table. DocumentManagement stores document metadata in a table and files in a blob container.</desc>
+<style>
+:root, svg {
+  --surface: #FFFFFF; --zone: #E8EDEA; --ink: #15201C; --ink-2: #4B5A54;
+  --line: #BFCAC5; --accent: #0A6B63; --manual: #9C5B08;
+  --font-body: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  svg {
+    --surface: #151D1A; --zone: #1B2521; --ink: #E2EAE6; --ink-2: #9DACA6;
+    --line: #36443F; --accent: #4CC3B5; --manual: #E3A24B;
+  }
+}
+.bg { fill: var(--surface); }
+  text { font-family: var(--font-body); font-size: 12px; fill: var(--ink); }
+  .ttl { font-weight: 600; font-size: 13px; }
+  .mttl { font-family: var(--font-mono); font-weight: 600; font-size: 12.5px; }
+  .mono { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-2); }
+  .sm { font-size: 11px; fill: var(--ink-2); }
+  .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; fill: var(--ink-2); }
+  .tag { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-2); }
+  .t-acc { fill: var(--accent); }
+  .t-man { fill: var(--manual); }
+  .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.25; }
+  .box.acc { stroke: var(--accent); stroke-width: 2; }
+  .box.man { stroke: var(--manual); stroke-width: 2; }
+  .box.ghost { fill: none; stroke-dasharray: 5 4; }
+  .zone { fill: var(--zone); stroke: var(--line); stroke-width: 1; }
+  .zone.open { fill: none; stroke-dasharray: 6 5; }
+  .edge { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+  .edge.acc { stroke: var(--accent); stroke-width: 1.8; }
+  .edge.man { stroke: var(--manual); stroke-width: 1.8; stroke-dasharray: 6 4; }
+  .edge.dash { stroke-dasharray: 4 4; }
+  .dot { fill: var(--ink-2); }
+  .life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 5; }
+  .box.note { fill: var(--zone); }
+  .on { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .ah { fill: var(--ink-2); }
+  .ah-acc { fill: var(--accent); }
+  .ah-man { fill: var(--manual); }
+</style>
+<rect class="bg" x="0" y="0" width="1110" height="480"/>
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="a1acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-acc" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+
+          <!-- Function App boundary -->
+          <rect class="zone open" x="280" y="14" width="520" height="452" rx="6"/>
+          <text class="lbl" x="296" y="36">Function App</text>
+          <text class="mono" x="296" y="54">anaviche-functions</text>
+
+          <!-- Callers -->
+          <rect class="box" x="20" y="176" width="200" height="74" rx="4"/>
+          <text class="ttl" x="36" y="202">Web frontend</text>
+          <text class="sm" x="36" y="220">runs in the browser</text>
+          <text class="mono" x="36" y="238">no function key</text>
+
+          <rect class="box" x="20" y="330" width="200" height="74" rx="4"/>
+          <text class="ttl" x="36" y="356">Claude via MCP</text>
+          <text class="mono" x="36" y="374">mcp_server/server.py</text>
+          <text class="mono" x="36" y="392">holds a function key</text>
+
+          <!-- Gateway -->
+          <rect class="box acc" x="310" y="176" width="180" height="74" rx="4"/>
+          <text class="ttl t-acc" x="326" y="202">gateway</text>
+          <text class="mono" x="326" y="220">/api/gateway/{*path}</text>
+          <text class="sm" x="326" y="238">anonymous</text>
+          <text class="sm" x="400" y="274" text-anchor="middle">forwards to /api/{path}</text>
+          <text class="sm" x="400" y="290" text-anchor="middle">and adds FUNCTIONS_KEY</text>
+
+          <!-- Caller edges -->
+          <line class="edge acc" x1="220" y1="213" x2="307" y2="213" marker-end="url(#a1acc)"/>
+          <text class="sm t-acc" x="264" y="205" text-anchor="middle">HTTPS</text>
+          <line class="edge acc" x1="490" y1="213" x2="525" y2="213"/>
+          <line class="edge" x1="220" y1="367" x2="525" y2="367"/>
+          <text class="sm" x="400" y="359" text-anchor="middle">HTTPS + x-functions-key</text>
+
+          <!-- Bus into the APIs -->
+          <line class="edge" x1="525" y1="123" x2="525" y2="409"/>
+          <circle class="dot" cx="525" cy="213" r="3.5"/>
+          <circle class="dot" cx="525" cy="367" r="3.5"/>
+          <line class="edge" x1="525" y1="123" x2="557" y2="123" marker-end="url(#a1)"/>
+          <line class="edge" x1="525" y1="250" x2="557" y2="250" marker-end="url(#a1)"/>
+          <line class="edge" x1="525" y1="326" x2="557" y2="326" marker-end="url(#a1)"/>
+          <line class="edge" x1="525" y1="409" x2="557" y2="409" marker-end="url(#a1)"/>
+
+          <!-- APIs -->
+          <rect class="box" x="560" y="44" width="210" height="158" rx="4"/>
+          <text class="ttl" x="576" y="70">ExpenseApi</text>
+          <text class="mono" x="576" y="88">/api/expenses</text>
+          <text class="mono" x="576" y="106">GET · POST (form)</text>
+
+          <rect class="box" x="560" y="218" width="210" height="64" rx="4"/>
+          <text class="ttl" x="576" y="240">BillsDownloadApi</text>
+          <text class="mono" x="576" y="258">/api/BillsDownloadApi</text>
+          <text class="mono" x="576" y="274">GET</text>
+
+          <rect class="box" x="560" y="294" width="210" height="64" rx="4"/>
+          <text class="ttl" x="576" y="316">PropertiesAPI</text>
+          <text class="mono" x="576" y="334">/api/properties</text>
+          <text class="mono" x="576" y="350">GET · POST · PUT · DELETE</text>
+
+          <rect class="box" x="560" y="370" width="210" height="78" rx="4"/>
+          <text class="ttl" x="576" y="392">DocumentManagement</text>
+          <text class="mono" x="576" y="410">/api/DocumentManagement</text>
+          <text class="mono" x="576" y="426">GET · POST · DELETE</text>
+
+          <!-- Storage: audit account -->
+          <rect class="zone" x="890" y="36" width="200" height="64" rx="6"/>
+          <text class="ttl" x="904" y="54" style="font-size:12px">Audit storage account</text>
+          <rect class="box" x="904" y="62" width="172" height="26" rx="3"/>
+          <text class="mono" x="916" y="79" style="fill:var(--ink)">audit-logs</text>
+          <text class="tag" x="1066" y="79" text-anchor="end">blob</text>
+
+          <!-- Storage: main account -->
+          <rect class="zone" x="890" y="108" width="200" height="346" rx="6"/>
+          <text class="ttl" x="904" y="127" style="font-size:12px">Main storage account</text>
+          <rect class="box" x="904" y="137" width="172" height="26" rx="3"/>
+          <text class="mono" x="916" y="154" style="fill:var(--ink)">Expenses</text>
+          <text class="tag" x="1066" y="154" text-anchor="end">table</text>
+          <rect class="box" x="904" y="178" width="172" height="68" rx="3"/>
+          <text class="mono" x="916" y="216" style="fill:var(--ink)">bills</text>
+          <text class="tag" x="1066" y="216" text-anchor="end">blob</text>
+          <rect class="box" x="904" y="302" width="172" height="26" rx="3"/>
+          <text class="mono" x="916" y="319" style="fill:var(--ink)">Properties</text>
+          <text class="tag" x="1066" y="319" text-anchor="end">table</text>
+          <rect class="box" x="904" y="378" width="172" height="26" rx="3"/>
+          <text class="mono" x="916" y="395" style="fill:var(--ink)">PropertyDocuments</text>
+          <text class="tag" x="1066" y="395" text-anchor="end">table</text>
+          <rect class="box" x="904" y="414" width="172" height="26" rx="3"/>
+          <text class="mono" x="916" y="431" style="fill:var(--ink)">property-documents</text>
+          <text class="tag" x="1066" y="431" text-anchor="end">blob</text>
+
+          <!-- API to storage -->
+          <line class="edge dash" x1="770" y1="75" x2="901" y2="75" marker-end="url(#a1)"/>
+          <text class="sm" x="836" y="68" text-anchor="middle">audit JSON</text>
+          <line class="edge" x1="770" y1="150" x2="901" y2="150" marker-end="url(#a1)"/>
+          <text class="sm" x="836" y="143" text-anchor="middle">rows</text>
+          <line class="edge" x1="770" y1="192" x2="901" y2="192" marker-end="url(#a1)"/>
+          <text class="sm" x="836" y="185" text-anchor="middle">bill upload</text>
+          <line class="edge" x1="770" y1="234" x2="901" y2="234" marker-end="url(#a1)"/>
+          <text class="sm" x="836" y="227" text-anchor="middle">download</text>
+          <line class="edge" x1="770" y1="315" x2="901" y2="315" marker-end="url(#a1)"/>
+          <text class="sm" x="836" y="308" text-anchor="middle">rows</text>
+          <line class="edge" x1="770" y1="391" x2="901" y2="391" marker-end="url(#a1)"/>
+          <text class="sm" x="836" y="384" text-anchor="middle">metadata</text>
+          <line class="edge" x1="770" y1="427" x2="901" y2="427" marker-end="url(#a1)"/>
+          <text class="sm" x="836" y="420" text-anchor="middle">file</text>
+        </svg>
