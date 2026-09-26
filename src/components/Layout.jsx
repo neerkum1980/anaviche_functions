@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { AuthBar } from "../auth.jsx";
 import { common, useLang, useText } from "../i18n.jsx";
+import { images } from "../images.js";
 
 export function Nav() {
   const { lang, setLang } = useLang();
@@ -31,22 +32,42 @@ export function Nav() {
   );
 }
 
+function PhotoCredits() {
+  const { lang } = useLang();
+  return (
+    <details className="credits">
+      <summary>{lang === "de" ? "Bildnachweise" : "Photo credits"}</summary>
+      <ul>
+        {Object.values(images).map((img) => (
+          <li key={img.src}>
+            <a href={img.page} target="_blank" rel="noopener noreferrer">{img.alt[lang]}</a>
+            {" – "}{img.author}, <a href={img.licenseUrl} target="_blank" rel="noopener noreferrer">{img.license}</a>
+            {lang === "de" ? ", via Wikimedia Commons (verkleinert)" : ", via Wikimedia Commons (resized)"}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export default function Layout() {
   return (
     <>
       <Outlet />
-      <footer>&copy; {new Date().getFullYear()} ANAVICHE AG. All rights reserved.</footer>
+      <footer>
+        <p>&copy; {new Date().getFullYear()} ANAVICHE AG. All rights reserved.</p>
+        <PhotoCredits />
+      </footer>
     </>
   );
 }
-
 
 // Blue title band used by the app pages, with the sign-in controls.
 export function PageHeader({ title, subtitle }) {
   const t = useText(common);
   return (
     <>
-      <header className="page-header">
+      <header className="page-header" style={{ "--bg": `url(${images.zurich.src})` }}>
         <h1>{title}</h1>
         <p>{subtitle}</p>
         <AuthBar labels={t.auth} />
@@ -56,8 +77,8 @@ export function PageHeader({ title, subtitle }) {
   );
 }
 
-// Card that fades in when it scrolls into view.
-export function Panel({ id, children }) {
+// True once the element has scrolled into view (and stays true).
+export function useInView(threshold = 0.15) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
 
@@ -74,15 +95,35 @@ export function Panel({ id, children }) {
           observer.disconnect();
         }
       },
-      { threshold: 0.15 }
+      { threshold }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [threshold]);
 
+  return [ref, visible];
+}
+
+// Fades and slides its content in when it scrolls into view; delay staggers siblings.
+export function Reveal({ as: Tag = "div", className = "", delay = 0, children, ...props }) {
+  const [ref, visible] = useInView();
   return (
-    <section id={id} ref={ref} className={`panel${visible ? " is-visible" : ""}`}>
+    <Tag
+      ref={ref}
+      className={`reveal${visible ? " is-visible" : ""} ${className}`.trim()}
+      style={{ transitionDelay: `${delay}ms` }}
+      {...props}
+    >
       {children}
-    </section>
+    </Tag>
+  );
+}
+
+// Card that fades in when it scrolls into view.
+export function Panel({ id, children }) {
+  return (
+    <Reveal as="section" id={id} className="panel">
+      {children}
+    </Reveal>
   );
 }

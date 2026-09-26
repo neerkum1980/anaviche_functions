@@ -1,5 +1,6 @@
-import { Nav, Panel } from "../components/Layout.jsx";
-import { useText } from "../i18n.jsx";
+import { Nav, Panel, Reveal } from "../components/Layout.jsx";
+import { useLang, useText } from "../i18n.jsx";
+import { images } from "../images.js";
 
 const texts = {
   de: {
@@ -54,23 +55,35 @@ const texts = {
 
 export default function About() {
   const t = useText(texts);
+  const { lang } = useLang();
 
   return (
     <div className="about-page">
       <Nav />
-      <section className="hero-about">
-        <h1>{t.title}</h1>
-        <p>{t.intro}</p>
-        <a className="hero-cta" href="#contact">{t.cta}</a>
+      <section className="hero-about" style={{ "--bg": `url(${images.zugAltstadt.src})` }}>
+        <Reveal className="hero-about-content">
+          <h1>{t.title}</h1>
+          <p>{t.intro}</p>
+          <a className="hero-cta" href="#contact">{t.cta}</a>
+        </Reveal>
       </section>
 
       <main>
         <Panel id="about">
           <h2>{t.whoTitle}</h2>
           {t.who.map((p) => <p key={p}>{p}</p>)}
-          <p><strong>Vision:</strong> {t.vision}</p>
-          <p><strong>Mission:</strong> {t.mission}</p>
         </Panel>
+
+        <div className="vm-grid">
+          <Reveal as="article" className="vm-card">
+            <span className="vm-label">Vision</span>
+            <p>{t.vision}</p>
+          </Reveal>
+          <Reveal as="article" className="vm-card" delay={140}>
+            <span className="vm-label">Mission</span>
+            <p>{t.mission}</p>
+          </Reveal>
+        </div>
 
         <Panel id="founders">
           <h2>{t.foundersTitle}</h2>
@@ -78,12 +91,17 @@ export default function About() {
           <p>{t.foundersTech}</p>
         </Panel>
 
-        <Panel id="contact">
-          <h2>{t.contactTitle}</h2>
-          <p>{t.contactIntro}</p>
-          <p><strong>{t.email}</strong> anavicheag@outlook.com</p>
-          <p><strong>{t.address}</strong> {t.addressValue}</p>
-        </Panel>
+        <Reveal as="section" id="contact" className="contact-card">
+          <div className="contact-media">
+            <img src={images.zugersee.src} alt={images.zugersee.alt[lang]} loading="lazy" />
+          </div>
+          <div className="contact-body">
+            <h2>{t.contactTitle}</h2>
+            <p>{t.contactIntro}</p>
+            <p><strong>{t.email}</strong> <a href="mailto:anavicheag@outlook.com">anavicheag@outlook.com</a></p>
+            <p><strong>{t.address}</strong> {t.addressValue}</p>
+          </div>
+        </Reveal>
       </main>
     </div>
   );

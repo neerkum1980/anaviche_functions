@@ -1,11 +1,15 @@
 import { Link } from "react-router-dom";
-import { Nav, Panel } from "../components/Layout.jsx";
-import { useText } from "../i18n.jsx";
+import HeroSlideshow from "../components/HeroSlideshow.jsx";
+import { Nav, Panel, Reveal, useInView } from "../components/Layout.jsx";
+import { useLang, useText } from "../i18n.jsx";
+import { images } from "../images.js";
 
 const texts = {
   de: {
     tagline: "Investitionen in Mehrfamilienhäuser & hochwertige möblierte Vermietungen in der Schweiz",
     cta: "Unsere Immobilien ansehen",
+    ctaContact: "Kontakt aufnehmen",
+    serviceTitles: ["Möbliertes Wohnen", "Bewirtschaftung", "Marktanalysen"],
     focus: {
       title: "Unser Investitionsfokus",
       intro: "Anaviche AG erwirbt und entwickelt Mehrfamilienhäuser in gut angebundenen Schweizer Lagen. Wir bieten moderne, möblierte Wohnlösungen für Berufstätige, Familien im Umzug und langfristige Mieterinnen und Mieter.",
@@ -33,6 +37,7 @@ const texts = {
         "Langfristige Ausrichtung auf stabile Mieterträge.",
       ],
       howTitle: "So funktioniert es",
+      benefitsTitle: "Ihre Vorteile",
       steps: [
         "Wir stellen eine konkrete Objektchance mit Eckdaten vor.",
         "Interessierte Partner prüfen die Unterlagen und Konditionen.",
@@ -60,6 +65,8 @@ const texts = {
   en: {
     tagline: "Investing in Multifamily Properties & Offering Quality Furnished Rentals Across Switzerland",
     cta: "View Our Properties",
+    ctaContact: "Get in touch",
+    serviceTitles: ["Furnished living", "Property management", "Market insights"],
     focus: {
       title: "Our Investment Focus",
       intro: "Anaviche AG acquires and enhances multifamily properties in well-connected Swiss locations. We deliver modern, furnished living spaces designed for professionals, relocating families, and long-term tenants.",
@@ -87,6 +94,7 @@ const texts = {
         "Long-term focus on stable rental income.",
       ],
       howTitle: "How it works",
+      benefitsTitle: "Your benefits",
       steps: [
         "We present a specific property opportunity with key metrics.",
         "Interested partners review documents and terms.",
@@ -120,75 +128,133 @@ const vacancyRates = [
   { year: 2024, rate: 1.4 },
   { year: 2025, rate: 1.3 },
 ];
+const maxRate = Math.max(...vacancyRates.map((v) => v.rate));
+
+const heroSlides = [images.pilatus, images.zurich, images.luzern, images.zugersee];
+const serviceImages = [images.livingRoom, images.kitchen, images.grossmuenster];
 
 function CheckList({ items }) {
   return (
     <ul className="list-check">
-      {items.map((item) => <li key={item}>{item}</li>)}
+      {items.map((item, i) => (
+        <Reveal as="li" key={item} delay={i * 90}>{item}</Reveal>
+      ))}
     </ul>
+  );
+}
+
+function VacancyChart({ decimal }) {
+  const [ref, visible] = useInView(0.3);
+  return (
+    <div className="chart" ref={ref}>
+      {vacancyRates.map(({ year, rate }, i) => (
+        <div className="chart-row" key={year}>
+          <span className="chart-label">{year}</span>
+          <div className="chart-track">
+            <div
+              className="chart-bar"
+              style={{ width: visible ? `${(rate / maxRate) * 100}%` : "0%", transitionDelay: `${i * 120}ms` }}
+            >
+              {String(rate).replace(".", decimal)}%
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 export default function Home() {
   const t = useText(texts);
+  const { lang } = useLang();
 
   return (
     <>
-      <div className="hero">
-        <div className="hero-overlay">
-          <header>
-            <h1>Anaviche AG</h1>
-            <p>{t.tagline}</p>
-          </header>
+      <HeroSlideshow slides={heroSlides}>
+        <header className="hero-text">
+          <h1>Anaviche AG</h1>
+          <p>{t.tagline}</p>
+        </header>
+        <div className="hero-actions">
           <Link to="/properties" className="cta">{t.cta}</Link>
+          <Link to="/about#contact" className="cta cta-ghost">{t.ctaContact}</Link>
         </div>
-      </div>
+      </HeroSlideshow>
       <Nav />
 
-      <main>
-        <Panel id="overview">
-          <h2>{t.focus.title}</h2>
-          <p>{t.focus.intro}</p>
-          <CheckList items={t.focus.points} />
-        </Panel>
+      <main className="home">
+        <section id="overview" className="split">
+          <Reveal className="split-media">
+            <img src={images.multifamily.src} alt={images.multifamily.alt[lang]} loading="lazy" />
+          </Reveal>
+          <Reveal className="split-text" delay={120}>
+            <h2>{t.focus.title}</h2>
+            <p>{t.focus.intro}</p>
+            <CheckList items={t.focus.points} />
+          </Reveal>
+        </section>
 
-        <Panel id="services">
-          <h2>{t.services.title}</h2>
-          <p>{t.services.intro}</p>
-          <CheckList items={t.services.points} />
-        </Panel>
-
-        <Panel id="invest">
-          <h2>{t.invest.title}</h2>
-          <p>{t.invest.intro}</p>
-          <CheckList items={t.invest.points} />
-          <h3>{t.invest.howTitle}</h3>
-          <ol>
-            {t.invest.steps.map((step) => <li key={step}>{step}</li>)}
-          </ol>
-          <p><strong>{t.invest.contact}</strong> anavicheag@outlook.com</p>
-        </Panel>
-
-        <Panel id="market">
-          <h2>{t.market.title}</h2>
-          <p>{t.market.intro}</p>
-          <div className="chart">
-            {vacancyRates.map(({ year, rate }) => (
-              <div className="chart-row" key={year}>
-                <span className="chart-label">{year}</span>
-                <div className="chart-bar" style={{ width: `${rate * 10}%` }}>
-                  {String(rate).replace(".", t.market.decimal)}%
+        <section id="services">
+          <Reveal>
+            <h2>{t.services.title}</h2>
+            <p className="lead">{t.services.intro}</p>
+          </Reveal>
+          <div className="feature-grid">
+            {t.services.points.map((point, i) => (
+              <Reveal as="article" className="feature-card" key={point} delay={i * 120}>
+                <div className="feature-media">
+                  <img src={serviceImages[i].src} alt={serviceImages[i].alt[lang]} loading="lazy" />
                 </div>
-              </div>
+                <div className="feature-body">
+                  <h3>{t.serviceTitles[i]}</h3>
+                  <p>{point}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
-        </Panel>
+        </section>
+      </main>
 
-        <Panel id="news">
-          <h2>{t.news.title}</h2>
-          <p>{t.news.intro}</p>
-          <CheckList items={t.news.points} />
-        </Panel>
+      <section id="invest" className="parallax" style={{ "--bg": `url(${images.zugersee.src})` }}>
+        <Reveal className="parallax-content">
+          <h2>{t.invest.title}</h2>
+          <p>{t.invest.intro}</p>
+        </Reveal>
+      </section>
+
+      <main className="home">
+        <section className="invest-details">
+          <Reveal as="h3" className="steps-title">{t.invest.howTitle}</Reveal>
+          <ol className="steps">
+            {t.invest.steps.map((step, i) => (
+              <Reveal as="li" key={step} delay={i * 120}>
+                <p>{step}</p>
+              </Reveal>
+            ))}
+          </ol>
+          <Reveal className="invest-points">
+            <h3>{t.invest.benefitsTitle}</h3>
+            <CheckList items={t.invest.points} />
+            <p className="contact-line">
+              <strong>{t.invest.contact}</strong>{" "}
+              <a href="mailto:anavicheag@outlook.com">anavicheag@outlook.com</a>
+            </p>
+          </Reveal>
+        </section>
+
+        <div className="two-col">
+          <Panel id="market">
+            <h2>{t.market.title}</h2>
+            <p>{t.market.intro}</p>
+            <VacancyChart decimal={t.market.decimal} />
+          </Panel>
+
+          <Panel id="news">
+            <h2>{t.news.title}</h2>
+            <p>{t.news.intro}</p>
+            <CheckList items={t.news.points} />
+          </Panel>
+        </div>
       </main>
     </>
   );

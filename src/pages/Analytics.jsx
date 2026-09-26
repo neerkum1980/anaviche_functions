@@ -1,4 +1,5 @@
-import { Nav } from "../components/Layout.jsx";
+import { Nav, Reveal } from "../components/Layout.jsx";
+import { images } from "../images.js";
 import { useText } from "../i18n.jsx";
 
 const HOUSING_URL = "https://www.bfs.admin.ch/bfs/en/home/statistics/construction-housing.html";
@@ -33,18 +34,23 @@ export default function Analytics() {
   return (
     <>
       <Nav />
+      <section className="banner" style={{ "--bg": `url(${images.grossmuenster.src})` }}>
+        <Reveal className="banner-content">
+          <h1>{t.title}</h1>
+          <p>{t.intro}</p>
+        </Reveal>
+      </section>
       <main>
-        <h1 className="page-title">{t.title}</h1>
-        <p>{t.intro}</p>
         <section>
-          <h2>{t.sectionTitle}</h2>
+          <Reveal as="h2">{t.sectionTitle}</Reveal>
           <div className="grid">
-            {t.cards.map((card) => (
-              <div className="card" key={card.title}>
+            {t.cards.map((card, i) => (
+              <Reveal as="div" className="card" key={card.title} delay={i * 120}>
+                <span className="card-number">{String(i + 1).padStart(2, "0")}</span>
                 <h3>{card.title}</h3>
                 <p>{card.text}</p>
-                <a href={card.url} target="_blank" rel="noopener noreferrer">{card.link}</a>
-              </div>
+                <a href={card.url} target="_blank" rel="noopener noreferrer">{card.link} →</a>
+              </Reveal>
             ))}
           </div>
         </section>
