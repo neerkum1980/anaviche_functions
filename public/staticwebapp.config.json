@@ -1,0 +1,55 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/assets/*"
+    ]
+  },
+  "routes": [
+    {
+      "route": "/index_en.html",
+      "redirect": "/?lang=en",
+      "statusCode": 301
+    },
+    {
+      "route": "/about.html",
+      "redirect": "/about",
+      "statusCode": 301
+    },
+    {
+      "route": "/about_en.html",
+      "redirect": "/about?lang=en",
+      "statusCode": 301
+    },
+    {
+      "route": "/analytics.html",
+      "redirect": "/analytics",
+      "statusCode": 301
+    },
+    {
+      "route": "/analytics_en.html",
+      "redirect": "/analytics?lang=en",
+      "statusCode": 301
+    },
+    {
+      "route": "/properties.html",
+      "redirect": "/properties",
+      "statusCode": 301
+    },
+    {
+      "route": "/properties_en.html",
+      "redirect": "/properties?lang=en",
+      "statusCode": 301
+    },
+    {
+      "route": "/manage.html",
+      "redirect": "/manage",
+      "statusCode": 301
+    },
+    {
+      "route": "/accounting.html",
+      "redirect": "/accounting",
+      "statusCode": 301
+    }
+  ]
+}
