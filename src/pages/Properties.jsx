@@ -1,3 +1,4 @@
+import ChatPanel from "../components/ChatPanel.jsx";
 import { PageHeader } from "../components/Layout.jsx";
 import { RequireSignIn } from "../auth.jsx";
 import { common, useLang } from "../i18n.jsx";
@@ -64,6 +65,7 @@ export default function Properties() {
         <h2>{t.listTitle}</h2>
         <RequireSignIn message={common[lang].pleaseSignIn}>
           <PropertyTable t={t} />
+          <ChatPanel />
         </RequireSignIn>
       </main>
     </>

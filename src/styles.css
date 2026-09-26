@@ -607,3 +607,124 @@ th.sortable[data-order="desc"]::after {
     white-space: nowrap;
   }
 }
+
+/* ---------- Chat (manage and properties pages) ---------- */
+
+.chat-toggle {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 50;
+  border-radius: 999px;
+  padding: 12px 20px;
+  box-shadow: 0 10px 24px rgba(0, 56, 100, 0.3);
+}
+
+.chat-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 50;
+  width: min(380px, calc(100vw - 32px));
+  height: min(560px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  margin: 0;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--brand-dark);
+  color: white;
+  padding: 12px 16px;
+}
+
+.chat-close {
+  background: transparent;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 1.4em;
+  line-height: 1;
+}
+
+.chat-close:hover {
+  background: transparent;
+  opacity: 0.8;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-soft);
+}
+
+.chat-intro {
+  font-size: 0.9em;
+  color: #555;
+  margin: 0 0 4px;
+}
+
+.chat-message {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+  background: var(--brand);
+  color: white;
+}
+
+.chat-message.assistant {
+  align-self: flex-start;
+  background: white;
+  border: 1px solid rgba(0, 75, 141, 0.15);
+}
+
+.chat-message.pending {
+  color: #666;
+  font-style: italic;
+}
+
+.chat-error {
+  color: #a4262c;
+  font-size: 0.9em;
+  margin: 0;
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #ddd;
+}
+
+.chat-form textarea {
+  resize: none;
+}
+
+.chat-form button {
+  margin: 0;
+  align-self: stretch;
+}
+
+@media (max-width: 480px) {
+  .chat-panel {
+    right: 16px;
+    bottom: 16px;
+  }
+}

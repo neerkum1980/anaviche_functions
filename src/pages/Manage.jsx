@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ChatPanel from "../components/ChatPanel.jsx";
 import { PageHeader } from "../components/Layout.jsx";
 import { RequireSignIn, useApi } from "../auth.jsx";
 import { saveResponse } from "../download.js";
@@ -301,6 +302,7 @@ export default function Manage() {
       <main>
         <RequireSignIn message={common[lang].pleaseSignIn}>
           <ManageProperties t={t} />
+          <ChatPanel />
         </RequireSignIn>
       </main>
     </>
