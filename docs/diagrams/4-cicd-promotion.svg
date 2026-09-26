@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" class="d" viewBox="0 0 1096 344" width="1096" height="344" role="img" aria-labelledby="t d">
 <title id="t">anaviche-functions: CI/CD and promotion</title>
-<desc id="d">CI/CD pipeline. Automatic lane: a push to main passes a path filter, then the check job compiles and imports all five functions with Python 3.12, then the deploy job logs in with OIDC, installs dependencies into the package and deploys it to the test app as a run-from-package zip, then a smoke test calls each of the five functions and checks its expected status, and test is live. You then check test and start the manual lane with Run workflow: a branch guard requires main, then the same check, deploy to production and smoke test run, and production is live.</desc>
+<desc id="d">CI/CD pipeline. Automatic lane: a push to main passes a path filter, then the check job compiles and imports all six functions with Python 3.12, then the deploy job logs in with OIDC, installs dependencies into the package and deploys it to the test app as a run-from-package zip, then a smoke test calls each of the six functions and checks its expected status, and test is live. You then check test and start the manual lane with Run workflow: a branch guard requires main, then the same check, deploy to production and smoke test run, and production is live.</desc>
 <style>
 :root, svg {
   --surface: #FFFFFF; --zone: #E8EDEA; --ink: #15201C; --ink-2: #4B5A54;
@@ -59,14 +59,14 @@
           <rect class="box" x="200" y="54" width="156" height="92" rx="4"/>
           <text class="ttl" x="214" y="78">Path filter</text>
           <text class="sm" x="214" y="98">skipped when only</text>
-          <text class="mono" x="214" y="114">mcp_server/ .claude/</text>
+          <text class="mono" x="214" y="114">.claude/ .mcp.json</text>
           <text class="sm" x="214" y="130">docs/ or *.md changed</text>
 
           <rect class="box" x="380" y="54" width="156" height="92" rx="4"/>
           <text class="ttl" x="394" y="78">check</text>
           <text class="sm" x="394" y="98">Python 3.12</text>
           <text class="sm" x="394" y="114">compile + import</text>
-          <text class="sm" x="394" y="130">all 5 functions</text>
+          <text class="sm" x="394" y="130">all 6 functions</text>
 
           <rect class="box" x="560" y="54" width="156" height="92" rx="4"/>
           <text class="ttl" x="574" y="78">deploy → test</text>
@@ -76,8 +76,8 @@
 
           <rect class="box" x="740" y="54" width="156" height="92" rx="4"/>
           <text class="ttl" x="754" y="78">smoke test</text>
-          <text class="sm" x="754" y="98">one GET for each</text>
-          <text class="sm" x="754" y="114">of the 5 functions</text>
+          <text class="sm" x="754" y="98">a check for each</text>
+          <text class="sm" x="754" y="114">of the 6 functions</text>
           <text class="sm" x="754" y="130">up to 10 tries</text>
 
           <rect class="box acc" x="920" y="54" width="156" height="92" rx="4"/>
@@ -112,7 +112,7 @@
           <text class="ttl" x="394" y="262">check</text>
           <text class="sm" x="394" y="282">Python 3.12</text>
           <text class="sm" x="394" y="298">compile + import</text>
-          <text class="sm" x="394" y="314">all 5 functions</text>
+          <text class="sm" x="394" y="314">all 6 functions</text>
 
           <rect class="box" x="560" y="238" width="156" height="92" rx="4"/>
           <text class="ttl" x="574" y="262">deploy → prod</text>
@@ -122,8 +122,8 @@
 
           <rect class="box" x="740" y="238" width="156" height="92" rx="4"/>
           <text class="ttl" x="754" y="262">smoke test</text>
-          <text class="sm" x="754" y="282">one GET for each</text>
-          <text class="sm" x="754" y="298">of the 5 functions</text>
+          <text class="sm" x="754" y="282">a check for each</text>
+          <text class="sm" x="754" y="298">of the 6 functions</text>
           <text class="sm" x="754" y="314">up to 10 tries</text>
 
           <rect class="box man" x="920" y="238" width="156" height="92" rx="4"/>

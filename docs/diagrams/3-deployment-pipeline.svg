@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" class="d" viewBox="0 0 1100 740" width="1100" height="740" role="img" aria-labelledby="t d">
 <title id="t">anaviche-functions: Deployment pipeline</title>
-<desc id="d">Deployment pipeline sequence. The GitHub Actions runner checks out the commit and installs dependencies into .python_packages. It requests an ID token from GitHub OIDC and exchanges it with Entra ID for an access token. It zips the repo minus .funcignore paths, reads the app settings from Azure Resource Manager to get the storage connection string, uploads the zip to the github-actions-deploy container, and sets WEBSITE_RUN_FROM_PACKAGE to the zip's SAS URL. Resource Manager restarts the Function App, which mounts the zip read-only. The runner then lists the function keys and calls each of the five functions until every one returns its expected status.</desc>
+<desc id="d">Deployment pipeline sequence. The GitHub Actions runner checks out the commit and installs dependencies into .python_packages. It requests an ID token from GitHub OIDC and exchanges it with Entra ID for an access token. It zips the repo minus .funcignore paths, reads the app settings from Azure Resource Manager to get the storage connection string, uploads the zip to the github-actions-deploy container, and sets WEBSITE_RUN_FROM_PACKAGE to the zip's SAS URL. Resource Manager restarts the Function App, which mounts the zip read-only. The runner then lists the function keys and calls each of the six functions until every one returns its expected status.</desc>
 <style>
 :root, svg {
   --surface: #FFFFFF; --zone: #E8EDEA; --ink: #15201C; --ink-2: #4B5A54;
@@ -120,7 +120,7 @@
           <line class="edge dash" x1="670" y1="648" x2="113" y2="648" marker-end="url(#a4)"/>
           <text class="sm on" x="390" y="641" text-anchor="middle">default key (masked in logs)</text>
           <line class="edge" x1="110" y1="686" x2="1007" y2="686" marker-end="url(#a4)"/>
-          <text class="sm on" x="560" y="679" text-anchor="middle">one read-only GET per function (5)</text>
+          <text class="sm on" x="560" y="679" text-anchor="middle">one read-only request per function (6)</text>
           <line class="edge dash" x1="1010" y1="714" x2="113" y2="714" marker-end="url(#a4)"/>
           <text class="sm on" x="560" y="707" text-anchor="middle">each returns its expected status → run passes</text>
         </svg>
