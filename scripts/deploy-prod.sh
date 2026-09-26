@@ -15,9 +15,11 @@ npm run build
 conn=$(az storage account show-connection-string -n "$STORAGE_ACCOUNT" --query connectionString -o tsv)
 old_assets=$(az storage blob list --connection-string "$conn" -c '$web' --prefix assets/ --query "[].name" -o tsv)
 
-# Hashed assets first, then index.html, so the new page never references missing files.
+# Hashed assets and photos first, then index.html, so the new page never references missing files.
 az storage blob upload-batch --connection-string "$conn" -d '$web' -s dist/assets --destination-path assets \
   --content-cache-control "public, max-age=31536000, immutable" --overwrite -o none
+az storage blob upload-batch --connection-string "$conn" -d '$web' -s dist/images --destination-path images \
+  --content-cache-control "public, max-age=604800" --overwrite -o none
 az storage blob upload --connection-string "$conn" -c '$web' -n index.html -f dist/index.html \
   --content-type "text/html; charset=utf-8" --content-cache-control "no-cache" --overwrite -o none
 
