@@ -22,6 +22,7 @@ on:
       - "clients/**"
       - ".github/workflows/deploy-frontend.yml"
       - ".github/workflows/release.yml"
+      - ".github/workflows/provision-clients.yml"
   workflow_dispatch:
 
 permissions:

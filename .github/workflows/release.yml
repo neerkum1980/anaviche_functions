@@ -1,9 +1,11 @@
 # Releases main to client stacks (production): backend and frontend together.
-#   Run workflow -> client: "all" for every client in clients/, or one client id.
+#   Run workflow -> client: "all" for every ready client in the registry, or one client id.
+#   The Provision clients workflow also starts it for each newly created client.
 #
-# Each client in clients/<client>.json was created by infra/new-client.sh, which also
-# gave the GitHub deploy identity access to that client's Function App and Static Web App.
-# Clients are released in parallel; one client failing does not stop the others.
+# Clients come from the Clients registry table (see infra/platform.env). Each was created
+# by infra/new-client.sh, which gave the GitHub deploy identity access to that client's
+# Function App and Static Web App. Clients are released in parallel; one client failing
+# does not stop the others.
 
 name: Release to clients
 
@@ -11,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       client:
-        description: "Client id from clients/, or all"
+        description: "Client id from the registry, or all"
         type: string
         default: all
 
@@ -37,20 +39,34 @@ jobs:
           echo "::error::Releases must run from main (got $GITHUB_REF)."
           exit 1
       - uses: actions/checkout@v7
+      - name: Load platform settings
+        run: grep -v '^#' infra/platform.env >> "$GITHUB_ENV"
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
       - name: Pick clients
         id: pick
         env:
           WANTED: ${{ inputs.client }}
         run: |
+          az storage entity query --account-name "$REGISTRY_ACCOUNT" --table-name "$REGISTRY_TABLE" \
+            --auth-mode login --filter "PartitionKey eq 'client' and status eq 'ready'" -o json > registry.json
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import glob, json, os, sys
+          import json, os, sys
           wanted = os.environ["WANTED"].strip()
-          clients = [json.load(open(p)) for p in sorted(glob.glob("clients/*.json"))]
+          clients = []
+          for row in json.load(open("registry.json"))["items"]:
+              row = {k: v for k, v in row.items() if not k.endswith("@odata.type") and k not in ("etag", "Timestamp")}
+              row["client"] = row.pop("RowKey")
+              row["master"] = bool(row.get("master"))
+              clients.append(row)
           if wanted != "all":
               clients = [c for c in clients if c["client"] == wanted]
           if not clients:
-              sys.exit(f"No client matches {wanted!r}; see clients/.")
-          print("clients=" + json.dumps(clients))
+              sys.exit(f"No ready client matches {wanted!r} in the registry.")
+          print("clients=" + json.dumps(sorted(clients, key=lambda c: c["client"])))
           PY
 
   check:
@@ -148,6 +164,7 @@ jobs:
           VITE_MSAL_CLIENT_ID: ${{ matrix.client.webAppId }}
           VITE_TENANT_ID: ${{ matrix.client.tenantId }}
           VITE_API_SCOPE: ${{ matrix.client.apiScope }}
+          VITE_ADMIN_ENABLED: ${{ matrix.client.master }}
         run: |
           npm ci
           npm run build

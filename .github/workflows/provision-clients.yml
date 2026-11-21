@@ -1,0 +1,110 @@
+# Creates the stacks that platform admins request on the master site's Admin page.
+#
+# The admin API only writes a "requested" row to the Clients registry. This workflow
+# finds those rows every 15 minutes (or right away with Run workflow), creates each
+# client with infra/new-client.sh and infra/add-user.sh, and starts its first release.
+#
+# The lookup runs as the deploy identity, which can only read the registry. Provisioning
+# runs as anaviche-provisioner, which can create Entra apps, resource groups and role
+# assignments, and is usable only from the "provisioning" environment. Protect that
+# environment in GitHub (Settings > Environments) with required reviewers and a main-only
+# branch rule: anyone who can run a job in it can create resources in the tenant.
+
+name: Provision clients
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # OIDC login to Azure
+  contents: read
+  actions: write    # start the Release workflow for new clients
+
+concurrency:
+  group: provision-clients
+  cancel-in-progress: false
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      requests: ${{ steps.find.outputs.requests }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Load platform settings
+        run: grep -v '^#' infra/platform.env >> "$GITHUB_ENV"
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.DEPLOY_APP_ID }}
+          tenant-id: ${{ env.TENANT_ID }}
+          subscription-id: ${{ env.SUBSCRIPTION_ID }}
+      - name: Find requested clients
+        id: find
+        run: |
+          az storage entity query --account-name "$REGISTRY_ACCOUNT" --table-name "$REGISTRY_TABLE" \
+            --auth-mode login --filter "PartitionKey eq 'client' and status eq 'requested'" \
+            --select RowKey clientName adminEmail -o json > requested.json
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          rows = json.load(open("requested.json"))["items"]
+          requests = [{"client": r["RowKey"], "clientName": r["clientName"], "adminEmail": r["adminEmail"]} for r in rows]
+          print("requests=" + json.dumps(requests))
+          PY
+          echo "Requested clients: $(python3 -c 'import json; print(len(json.load(open("requested.json"))["items"]))')"
+
+  provision:
+    needs: find
+    if: needs.find.outputs.requests != '[]'
+    runs-on: ubuntu-latest
+    environment: provisioning
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        request: ${{ fromJSON(needs.find.outputs.requests) }}
+    name: provision ${{ matrix.request.client }}
+    env:
+      CLIENT: ${{ matrix.request.client }}
+      CLIENT_NAME: ${{ matrix.request.clientName }}
+      ADMIN_EMAIL: ${{ matrix.request.adminEmail }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Load platform settings
+        run: grep -v '^#' infra/platform.env >> "$GITHUB_ENV"
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.PROVISIONER_APP_ID }}
+          tenant-id: ${{ env.TENANT_ID }}
+          subscription-id: ${{ env.SUBSCRIPTION_ID }}
+
+      - name: Mark as provisioning
+        run: |
+          az storage entity merge -o none --account-name "$REGISTRY_ACCOUNT" --table-name "$REGISTRY_TABLE" \
+            --auth-mode login --entity PartitionKey=client RowKey="$CLIENT" status=provisioning \
+            message="Creating the stack" runUrl="$RUN_URL" updatedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      - name: Create the stack
+        run: MASTER=false bash infra/new-client.sh "$CLIENT" "$CLIENT_NAME"
+
+      - name: Add the first user
+        run: bash infra/add-user.sh "$CLIENT" "$ADMIN_EMAIL"
+
+      - name: Start the first release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run release.yml --ref main -f client="$CLIENT"
+          az storage entity merge -o none --account-name "$REGISTRY_ACCOUNT" --table-name "$REGISTRY_TABLE" \
+            --auth-mode login --entity PartitionKey=client RowKey="$CLIENT" \
+            message="Stack created; first release started" updatedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      - name: Mark as failed
+        if: failure()
+        run: |
+          az storage entity merge -o none --account-name "$REGISTRY_ACCOUNT" --table-name "$REGISTRY_TABLE" \
+            --auth-mode login --entity PartitionKey=client RowKey="$CLIENT" status=failed \
+            message="Provisioning failed; see the run" runUrl="$RUN_URL" updatedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
