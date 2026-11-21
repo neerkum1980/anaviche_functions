@@ -12,10 +12,13 @@
 #   2. Resource group + infra/client.bicep (Function App, storage, monitoring, frontend).
 #   3. Points the web app's redirect URI at the client's frontend.
 #   4. Lets the GitHub deploy identity release code to this client only.
-#   5. Writes clients/<client>.json, which the Release workflow reads.
+#   5. Records the client in the Clients registry table (status ready), which the
+#      Release workflow and the admin API read.
 #
-# Run it signed in to Azure CLI as a user who can create app registrations and
-# assign roles in the subscription. Then add users with infra/add-user.sh.
+# Normally run by the "Provision clients" workflow for requests made in the admin
+# page. To run it by hand, sign in to Azure CLI as a user who can create app
+# registrations, assign roles and write the registry table. MASTER=true marks the
+# master client, whose stack also runs the platform admin.
 set -euo pipefail
 
 client="${1:?usage: new-client.sh <client> \"<Client Name>\" [location]}"
@@ -24,14 +27,26 @@ location="${3:-francecentral}"
 [[ "$client" =~ ^[a-z0-9]{3,12}$ ]] || { echo "client must be 3-12 lowercase letters or digits" >&2; exit 1; }
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=platform.env
+source "$repo_root/infra/platform.env"
 rg="rg-anaviche-$client"
-tenant_id="$(az account show --query tenantId -o tsv)"
+tenant_id="$TENANT_ID"
 graph="https://graph.microsoft.com/v1.0"
-deploy_app_id="d6af7cfa-a2f0-41ca-b115-d0ad15fb0b32"   # anaviche-functions-github-deploy
+deploy_app_id="$DEPLOY_APP_ID"   # anaviche-functions-github-deploy
 graph_app_id="00000003-0000-0000-c000-000000000000"     # Microsoft Graph
 graph_user_read="e1fe6dd8-ba31-4d61-89e7-88639da4683d"  # Graph delegated User.Read
 
 log() { printf '\n== %s\n' "$*"; }
+
+registry() {  # registry <az storage entity subcommand> [args...]
+  az storage entity "$@" --account-name "$REGISTRY_ACCOUNT" --table-name "$REGISTRY_TABLE" --auth-mode login
+}
+
+# The master flag is kept in the registry, so a re-run never drops the admin.
+if [ -z "${MASTER:-}" ]; then
+  MASTER="$(registry show --partition-key client --row-key "$client" --query master -o tsv 2>/dev/null || true)"
+fi
+[ "$(printf %s "$MASTER" | tr "[:upper:]" "[:lower:]")" = "true" ] && is_master=true || is_master=false
 
 app_id_by_name() { az ad app list --display-name "$1" --query "[0].appId" -o tsv; }
 ensure_sp() {
@@ -120,7 +135,7 @@ fi
 outputs="$(az deployment group create -g "$rg" -n "anaviche-$client" \
   --template-file "$repo_root/infra/client.bicep" \
   --parameters client="$client" clientName="$client_name" location="$location" \
-               apiAppId="$api_app_id" tenantId="$tenant_id" functionsKey="$functions_key" \
+               apiAppId="$api_app_id" tenantId="$tenant_id" functionsKey="$functions_key" isMaster="$is_master" \
   --query properties.outputs -o json)"
 out() { python3 -c "import json,sys; print(json.loads(sys.argv[1])[sys.argv[2]]['value'])" "$outputs" "$1"; }
 function_app="$(out functionAppName)"
@@ -150,25 +165,17 @@ assign "Contributor" "$(az staticwebapp show -n "$frontend" -g "$rg" --query id 
 echo "deploy identity can release to $function_app and $frontend"
 
 # ---------------------------------------------------------------------------
-log "5. clients/$client.json"
+log "5. Client registry"
 # ---------------------------------------------------------------------------
-mkdir -p "$repo_root/clients"
-cat > "$repo_root/clients/$client.json" <<JSON
-{
-  "client": "$client",
-  "clientName": "$client_name",
-  "resourceGroup": "$rg",
-  "functionApp": "$function_app",
-  "apiBase": "https://$function_host/api/gateway",
-  "staticWebApp": "$frontend",
-  "frontendUrl": "$frontend_url",
-  "tenantId": "$tenant_id",
-  "apiAppId": "$api_app_id",
-  "apiScope": "api://$api_app_id/access_as_user",
-  "webAppId": "$web_app_id",
-  "usersGroup": "$group_name"
-}
-JSON
-cat "$repo_root/clients/$client.json"
+az storage table create --name "$REGISTRY_TABLE" --account-name "$REGISTRY_ACCOUNT" --auth-mode login -o none
+registry insert --if-exists merge -o none --entity PartitionKey=client RowKey="$client" \
+  clientName="$client_name" status=ready message="" \
+  resourceGroup="$rg" functionApp="$function_app" apiBase="https://$function_host/api/gateway" \
+  staticWebApp="$frontend" frontendUrl="$frontend_url" tenantId="$tenant_id" \
+  apiAppId="$api_app_id" apiScope="api://$api_app_id/access_as_user" webAppId="$web_app_id" \
+  usersGroup="$group_name" master="$is_master" master@odata.type=Edm.Boolean \
+  updatedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+registry show --partition-key client --row-key "$client" \
+  --query "{client:RowKey, status:status, master:master, frontendUrl:frontendUrl, functionApp:functionApp}" -o json
 
 log "Done. Next: infra/add-user.sh $client <email>, then run the Release workflow for $client."

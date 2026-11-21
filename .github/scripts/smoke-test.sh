@@ -8,6 +8,8 @@
 # function answer 500, so a function returning its own expected status has loaded.
 set -euo pipefail
 app="$1"; rg="$2"; gateway_status="$3"
+# AdminApi: switched off on the test app (404); behind sign-in on client stacks (401).
+[ "$gateway_status" = "200" ] && admin_status=404 || admin_status=401
 
 key=$(az functionapp keys list -n "$app" -g "$rg" --query functionKeys.default -o tsv)
 echo "::add-mask::$key"
@@ -21,7 +23,8 @@ checks="PropertiesAPI|properties|key|200|
 ExpenseApi|expenses?propertyId=__smoke__|key|200|
 DocumentManagement|DocumentManagement?propertyId=__smoke__|key|200|
 BillsDownloadApi|BillsDownloadApi|key|400|documentId
-gateway|gateway/properties|nokey|$gateway_status|"
+gateway|gateway/properties|nokey|$gateway_status|
+AdminApi|admin/clients|nokey|$admin_status|"
 
 run_checks() {
   local failed=0 name path auth want text code headers

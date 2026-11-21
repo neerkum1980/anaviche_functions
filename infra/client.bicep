@@ -27,6 +27,9 @@ param tenantId string = subscription().tenantId
 @description('Extra browser origins allowed to call the API, such as a custom domain.')
 param extraCorsOrigins array = []
 
+@description('True only for the master client, whose stack also runs the platform admin (AdminApi).')
+param isMaster bool = false
+
 @description('Existing FUNCTIONS_KEY value to keep on redeploy. Empty on a first deploy: the first release creates it.')
 @secure()
 param functionsKey string = ''
@@ -165,6 +168,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'AUDIT_STORAGE_CONNECTION_STRING', value: auditConnection }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
         { name: 'ANAVICHE_CLIENT', value: client }
+        { name: 'ANAVICHE_ADMIN_ENABLED', value: isMaster ? 'true' : 'false' }
       ], empty(functionsKey) ? [] : [
         { name: 'FUNCTIONS_KEY', value: functionsKey }
       ])

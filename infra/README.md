@@ -21,21 +21,41 @@ all clients and is released to them by the **Release to clients** workflow.
 of one client cannot call another client's backend. The APIs and the MCP endpoint
 require the client's function key.
 
+## The master client and the admin
+
+Neeraj Kumar (`neerajkumar`) is the **master client**: the platform owner. Its stack runs
+the same code as every client, plus the platform admin (`AdminApi` and the Admin page),
+switched on by `ANAVICHE_ADMIN_ENABLED=true`. Only users with the `Platform.Admin` role
+on the master's API app can use it. `setup-master.sh` set this up once.
+
+The **client registry** is the `Clients` table in the master's data storage (see
+`platform.env`). It records every client, its status (`requested`, `provisioning`,
+`ready`, `failed`) and the names the Release workflow needs.
+
 ## Add a client
 
-Signed in to Azure CLI as an admin who can create app registrations and assign roles:
+On the master site, open **Admin**, fill in the client id, name and first user's email,
+and select **Request client**. That only writes a `requested` row to the registry.
+
+The **Provision clients** workflow checks the registry every 15 minutes (or right away:
+Actions, Provision clients, Run workflow). For each request it runs, as the
+`anaviche-provisioner` identity:
+
+1. `new-client.sh <client> "<Client Name>"`: Entra users group and sign-in apps, resource
+   group and stack, release access for the deploy identity, registry row set to `ready`.
+2. `add-user.sh <client> <email>`: invites or adds the first user.
+3. Starts **Release to clients** for the new client, which deploys the code and frontend.
+
+The provisioner is the only identity that can create resources and Entra apps, and only
+from the GitHub `provisioning` environment. Protect that environment (Settings,
+Environments) with required reviewers and a main-only branch rule.
+
+The scripts still work by hand for an admin signed in to Azure CLI:
 
 ```sh
-infra/new-client.sh <client> "<Client Name>"      # e.g. infra/new-client.sh acme "Acme AG"
-infra/add-user.sh <client> person@example.com     # once per login user
+infra/new-client.sh <client> "<Client Name>"
+infra/add-user.sh <client> person@example.com     # also for more users later
 ```
-
-Commit the new `clients/<client>.json`, push, then run **Release to clients** with
-`client` set to the new id. The first release deploys the code, creates the gateway key
-and publishes the frontend.
-
-`new-client.sh` and `add-user.sh` are safe to re-run. People who are not in the
-directory yet get a guest invitation by email.
 
 ## Move an existing client's data
 

@@ -12,9 +12,12 @@ set -euo pipefail
 client="${1:?usage: add-user.sh <client> <email>}"
 email="${2:?usage: add-user.sh <client> <email>}"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-config="$repo_root/clients/$client.json"
-[ -f "$config" ] || { echo "No $config; run infra/new-client.sh first." >&2; exit 1; }
-cfg() { python3 -c "import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$config" "$1"; }
+# shellcheck source=platform.env
+source "$repo_root/infra/platform.env"
+config="$(az storage entity show --account-name "$REGISTRY_ACCOUNT" --table-name "$REGISTRY_TABLE" --auth-mode login \
+  --partition-key client --row-key "$client" -o json 2>/dev/null || true)"
+[ -n "$config" ] || { echo "Client $client is not in the registry; run infra/new-client.sh first." >&2; exit 1; }
+cfg() { python3 -c "import json,sys; print(json.loads(sys.argv[1])[sys.argv[2]])" "$config" "$1"; }
 graph="https://graph.microsoft.com/v1.0"
 default_role="00000000-0000-0000-0000-000000000000"  # "Default Access", for apps without roles
 
