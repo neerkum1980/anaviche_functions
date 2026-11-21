@@ -11,8 +11,9 @@ app="$1"; rg="$2"; gateway_status="$3"
 
 key=$(az functionapp keys list -n "$app" -g "$rg" --query functionKeys.default -o tsv)
 echo "::add-mask::$key"
-# az functionapp show leaves defaultHostName empty for Flex Consumption apps.
-host=$(az resource show -n "$app" -g "$rg" --resource-type Microsoft.Web/sites --query properties.defaultHostName -o tsv)
+# az functionapp show leaves defaultHostName empty for Flex Consumption apps, and
+# az resource show needs subscription-level read that the deploy identity lacks.
+host=$(az webapp show -n "$app" -g "$rg" --query defaultHostName -o tsv)
 [ -n "$host" ] || { echo "::error::Could not find the host name of $app"; exit 1; }
 
 # function | path | send key? | expected status | text the body must contain
