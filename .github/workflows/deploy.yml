@@ -1,10 +1,11 @@
-# Deploys the Function App code.
-#   push to main          -> anaviche-functions-test-y1 (test), automatically
-#   Run workflow (manual) -> anaviche-functions (production) by default, from main only
+# Deploys the Function App code to the shared test app, anaviche-functions-test-y1.
+#   push to main          -> test, automatically
+#   Run workflow (manual) -> test again, for a redeploy
+# Client stacks (production) are released with release.yml.
 #
 # Azure login uses OIDC through the Entra app "anaviche-functions-github-deploy". Its
-# federated credentials trust this repo's "test" and "production" environments, and it
-# has Website Contributor on the two Function Apps only. No secrets are stored in GitHub.
+# federated credentials trust this repo's "test" and "production" environments.
+# No secrets are stored in GitHub.
 
 name: Deploy Functions
 
@@ -17,14 +18,11 @@ on:
       - "**/*.md"
       - "docs/**"
       - "fe/**"
+      - "infra/**"
+      - "clients/**"
       - ".github/workflows/deploy-frontend.yml"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
-    inputs:
-      target:
-        description: "Environment to deploy to"
-        type: choice
-        options: [production, test]
-        default: production
 
 permissions:
   id-token: write   # OIDC login to Azure
@@ -34,7 +32,9 @@ env:
   AZURE_CLIENT_ID: d6af7cfa-a2f0-41ca-b115-d0ad15fb0b32
   AZURE_TENANT_ID: 9636baf2-1763-480c-8bb3-5689803dbf04
   AZURE_SUBSCRIPTION_ID: d00d160d-520b-4380-aae9-4930c151b7eb
-  PYTHON_VERSION: "3.12"   # matches the Function Apps' runtime (Python|3.12)
+  PYTHON_VERSION: "3.12"   # matches the Function Apps' runtime
+  TEST_APP: anaviche-functions-test-y1
+  TEST_RG: AnavicheRG-test
 
 jobs:
   check:
@@ -59,27 +59,11 @@ jobs:
   deploy:
     needs: check
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'push' && 'test' || inputs.target }}
+    environment: test
     concurrency:
-      group: deploy-${{ github.event_name == 'push' && 'test' || inputs.target }}
+      group: deploy-test
       cancel-in-progress: false
     steps:
-      - name: Resolve target
-        id: target
-        run: |
-          target="${{ github.event_name == 'push' && 'test' || inputs.target }}"
-          if [ "$target" = "production" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            echo "::error::Production deploys must run from main (got $GITHUB_REF)."
-            exit 1
-          fi
-          if [ "$target" = "production" ]; then
-            echo "app=anaviche-functions" >> "$GITHUB_OUTPUT"
-            echo "rg=AnavicheRG" >> "$GITHUB_OUTPUT"
-          else
-            echo "app=anaviche-functions-test-y1" >> "$GITHUB_OUTPUT"
-            echo "rg=AnavicheRG-test" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/checkout@v7
 
       # With OIDC (no publish profile) the action deploys via WEBSITE_RUN_FROM_PACKAGE,
@@ -96,63 +80,15 @@ jobs:
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to ${{ steps.target.outputs.app }}
+      - name: Deploy to ${{ env.TEST_APP }}
         uses: Azure/functions-action@v1
         with:
-          app-name: ${{ steps.target.outputs.app }}
+          app-name: ${{ env.TEST_APP }}
           package: .
           respect-funcignore: true
           scm-do-build-during-deployment: false
           enable-oryx-build: false
 
-      # One read-only request per function. Any import error makes a function return 500,
-      # so a function that answers with its own expected status has loaded correctly.
+      # The test app has no sign-in, so gateway answers anonymous calls with 200.
       - name: Smoke test (every function, read-only)
-        run: |
-          app="${{ steps.target.outputs.app }}"; rg="${{ steps.target.outputs.rg }}"
-          key=$(az functionapp keys list -n "$app" -g "$rg" --query functionKeys.default -o tsv)
-          echo "::add-mask::$key"
-          host=$(az functionapp show -n "$app" -g "$rg" --query defaultHostName -o tsv)
-
-          # function | path | send key? | expected status | text the body must contain
-          checks='PropertiesAPI|properties|key|200|
-          ExpenseApi|expenses?propertyId=__smoke__|key|200|
-          DocumentManagement|DocumentManagement?propertyId=__smoke__|key|200|
-          BillsDownloadApi|BillsDownloadApi|key|400|documentId
-          gateway|gateway/properties|nokey|200|'
-
-          run_checks() {
-            failed=0
-            while IFS='|' read -r name path auth want text; do
-              name=$(echo "$name" | xargs)
-              headers=()
-              [ "$auth" = "key" ] && headers=(-H "x-functions-key: $key")
-              code=$(curl -s -o body.txt -w "%{http_code}" --max-time 60 "${headers[@]}" "https://$host/api/$path" || echo "000")
-              if [ "$code" = "$want" ] && { [ -z "$text" ] || grep -q "$text" body.txt; }; then
-                printf "  ok    %-20s %s\n" "$name" "$code"
-              else
-                printf "  FAIL  %-20s got %s, want %s\n" "$name" "$code" "$want"
-                failed=1
-              fi
-            done <<< "$checks"
-
-            # McpServer speaks JSON-RPC over POST; tools/list must return the tool set.
-            code=$(curl -s -o body.txt -w "%{http_code}" --max-time 60 -X POST "https://$host/api/mcp" \
-              -H "x-functions-key: $key" -H "Content-Type: application/json" \
-              -H "Accept: application/json, text/event-stream" \
-              -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' || echo "000")
-            if [ "$code" = "200" ] && grep -q '"list_properties"' body.txt; then
-              printf "  ok    %-20s %s\n" "McpServer" "$code"
-            else
-              printf "  FAIL  %-20s got %s, want 200 with tools\n" "McpServer" "$code"
-              failed=1
-            fi
-            return $failed
-          }
-
-          for i in $(seq 1 10); do
-            echo "Attempt $i on $host"
-            if run_checks; then echo "All functions passed."; exit 0; fi
-            sleep 15
-          done
-          echo "::error::Smoke test failed on $host after 10 attempts"; exit 1
+        run: .github/scripts/smoke-test.sh "$TEST_APP" "$TEST_RG" 200

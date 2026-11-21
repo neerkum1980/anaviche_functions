@@ -1,0 +1,166 @@
+# Releases main to client stacks (production): backend and frontend together.
+#   Run workflow -> client: "all" for every client in clients/, or one client id.
+#
+# Each client in clients/<client>.json was created by infra/new-client.sh, which also
+# gave the GitHub deploy identity access to that client's Function App and Static Web App.
+# Clients are released in parallel; one client failing does not stop the others.
+
+name: Release to clients
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: "Client id from clients/, or all"
+        type: string
+        default: all
+
+permissions:
+  id-token: write   # OIDC login to Azure
+  contents: read
+
+env:
+  AZURE_CLIENT_ID: d6af7cfa-a2f0-41ca-b115-d0ad15fb0b32
+  AZURE_TENANT_ID: 9636baf2-1763-480c-8bb3-5689803dbf04
+  AZURE_SUBSCRIPTION_ID: d00d160d-520b-4380-aae9-4930c151b7eb
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      clients: ${{ steps.pick.outputs.clients }}
+    steps:
+      - name: Releases run from main only
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Releases must run from main (got $GITHUB_REF)."
+          exit 1
+      - uses: actions/checkout@v7
+      - name: Pick clients
+        id: pick
+        env:
+          WANTED: ${{ inputs.client }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import glob, json, os, sys
+          wanted = os.environ["WANTED"].strip()
+          clients = [json.load(open(p)) for p in sorted(glob.glob("clients/*.json"))]
+          if wanted != "all":
+              clients = [c for c in clients if c["client"] == wanted]
+          if not clients:
+              sys.exit(f"No client matches {wanted!r}; see clients/.")
+          print("clients=" + json.dumps(clients))
+          PY
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile and import every function
+        run: |
+          for d in */; do
+            if [ -f "$d/function.json" ]; then
+              python -m py_compile "$d/__init__.py"
+              python -c "import importlib; importlib.import_module('${d%/}')"
+              echo "ok: ${d%/}"
+            fi
+          done
+
+  release:
+    needs: [plan, check]
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        client: ${{ fromJSON(needs.plan.outputs.clients) }}
+    name: release ${{ matrix.client.client }}
+    concurrency:
+      group: release-${{ matrix.client.client }}
+      cancel-in-progress: false
+    env:
+      APP: ${{ matrix.client.functionApp }}
+      RG: ${{ matrix.client.resourceGroup }}
+      SWA: ${{ matrix.client.staticWebApp }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # ---- backend ----
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies into the package
+        run: pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy backend to ${{ env.APP }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.APP }}
+          package: .
+          respect-funcignore: true
+          sku: flexconsumption
+          remote-build: false
+
+      # gateway and McpServer call the APIs with the FUNCTIONS_KEY setting; make sure a
+      # function key named "gateway" holds that value (creates both on a client's first release).
+      - name: Ensure gateway key
+        run: |
+          val=$(az functionapp config appsettings list -n "$APP" -g "$RG" --query "[?name=='FUNCTIONS_KEY'].value | [0]" -o tsv)
+          if [ -z "$val" ]; then
+            val=$(python3 -c "import secrets; print(secrets.token_urlsafe(40))")
+            echo "::add-mask::$val"
+            az functionapp config appsettings set -n "$APP" -g "$RG" --settings "FUNCTIONS_KEY=$val" -o none
+          fi
+          echo "::add-mask::$val"
+          az functionapp keys set -n "$APP" -g "$RG" --key-type functionKeys --key-name gateway --key-value "$val" -o none
+
+      # Client stacks require sign-in, so gateway must refuse anonymous calls with 401.
+      - name: Smoke test backend (every function, read-only)
+        run: .github/scripts/smoke-test.sh "$APP" "$RG" 401
+
+      # ---- frontend ----
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+      - name: Build frontend for ${{ matrix.client.clientName }}
+        working-directory: fe
+        env:
+          VITE_API_BASE: ${{ matrix.client.apiBase }}
+          VITE_MSAL_CLIENT_ID: ${{ matrix.client.webAppId }}
+          VITE_TENANT_ID: ${{ matrix.client.tenantId }}
+          VITE_API_SCOPE: ${{ matrix.client.apiScope }}
+        run: |
+          npm ci
+          npm run build
+      - name: Get Static Web App deploy token
+        id: swa
+        run: |
+          token=$(az staticwebapp secrets list -n "$SWA" -g "$RG" --query properties.apiKey -o tsv)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Deploy frontend to ${{ env.SWA }}
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.swa.outputs.token }}
+          action: upload
+          app_location: fe/dist
+          skip_app_build: true
+      - name: Check frontend
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "${{ matrix.client.frontendUrl }}/")
+          [ "$code" = "200" ] || { echo "::error::Frontend answered $code"; exit 1; }
+          echo "Frontend live at ${{ matrix.client.frontendUrl }}"
