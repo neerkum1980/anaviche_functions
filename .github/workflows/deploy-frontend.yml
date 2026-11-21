@@ -3,18 +3,24 @@ name: Deploy frontend
 on:
   push:
     branches: [main]
+    paths:
+      - "fe/**"
+      - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch:
 
-# Deploys to the test Static Web App. Production (anaviche.ch) is a storage static
-# website; deploy it with scripts/deploy-prod.sh.
+# Deploys fe/ to the test Static Web App. Production (anaviche.ch) is a storage static
+# website; deploy it with fe/scripts/deploy-prod.sh.
 concurrency:
-  group: deploy-test
+  group: deploy-frontend-test
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: test
+    defaults:
+      run:
+        working-directory: fe
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +28,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: fe/package-lock.json
 
       - run: npm ci
 
@@ -36,5 +43,5 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.SWA_TOKEN_TEST }}
           action: upload
-          app_location: dist
+          app_location: fe/dist
           skip_app_build: true

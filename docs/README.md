@@ -4,7 +4,7 @@ Diagrams of how anaviche-functions runs, where it is hosted and how it is deploy
 
 ## 1. Runtime architecture
 
-The browser has no function key, so it goes through the anonymous `gateway`, which forwards each call with the key attached. Claude connects to `McpServer` (`/api/mcp`), a function in the same app that serves the MCP tools and calls the four APIs with the app's key. Every API reads and writes Azure Storage directly.
+The web frontend (`fe/`, React + Vite) has no function key, so it goes through the anonymous `gateway`, which forwards each call with the key attached. Claude connects to `McpServer` (`/api/mcp`), a function in the same app that serves the MCP tools and calls the four APIs with the app's key. Every API reads and writes Azure Storage directly.
 
 ![Runtime architecture](diagrams/1-runtime-architecture.svg)
 

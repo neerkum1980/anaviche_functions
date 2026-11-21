@@ -1,4 +1,4 @@
-// Build-time settings, set through VITE_* environment variables (see .github/workflows/deploy.yml).
+// Build-time settings, set through VITE_* environment variables (see .github/workflows/deploy-frontend.yml).
 export const API_BASE =
   import.meta.env.VITE_API_BASE || "https://anaviche-functions-test-y1.azurewebsites.net/api/gateway";
 

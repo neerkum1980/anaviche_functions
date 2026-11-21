@@ -349,7 +349,7 @@
         </tbody>
       </table>
     </div>
-    <p>The web frontend path is inferred from how <code>gateway</code> is configured: it is the only anonymous function and it injects the key. The repo does not contain the frontend itself.</p>
+    <p>The web frontend is the React + Vite app in <code>fe/</code>. It sends every API call through <code>gateway</code>: the test site to the test app, and anaviche.ch to production. It also calls a <code>chat</code> route that has no function on <code>main</code> yet.</p>
   </section>
 
   <!-- ============================ DEPLOYMENT ============================ -->
@@ -484,7 +484,7 @@
         </tbody>
       </table>
     </div>
-    <p><code>BILLS_STORAGE_CONNECTION_STRING</code> is set on both apps, but no function reads it; bills go to the <code>AzureWebJobsStorage</code> account. Other apps in these resource groups (<code>ux-backend</code>, <code>ux-backend-test</code>, <code>anaviche-functions-test</code> and the <code>anaviche-test</code> Static Web App) are not deployed by this pipeline.</p>
+    <p><code>BILLS_STORAGE_CONNECTION_STRING</code> is set on both apps, but no function reads it; bills go to the <code>AzureWebJobsStorage</code> account. The frontend in <code>fe/</code> has its own workflow, <code>Deploy frontend</code>, which publishes to the <code>anaviche-test</code> Static Web App on every push that touches <code>fe/</code>. Production at anaviche.ch is the <code>anavicheagstorage</code> static website, published by hand with <code>fe/scripts/deploy-prod.sh</code>. Other apps in these resource groups (<code>ux-backend</code>, <code>ux-backend-test</code>, <code>anaviche-functions-test</code>) are not deployed from this repo.</p>
   </section>
 
   <!-- ============================ DEPLOYMENT PIPELINE ============================ -->

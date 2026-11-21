@@ -16,6 +16,8 @@ on:
       - ".mcp.json"
       - "**/*.md"
       - "docs/**"
+      - "fe/**"
+      - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch:
     inputs:
       target:
