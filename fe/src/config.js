@@ -5,6 +5,9 @@ export const API_BASE =
 // The test site runs without login: the test API accepts anonymous calls.
 export const AUTH_DISABLED = import.meta.env.VITE_AUTH_DISABLED === "true";
 
+// Only the master client's build shows the platform admin (onboarding new clients).
+export const ADMIN_ENABLED = import.meta.env.VITE_ADMIN_ENABLED === "true";
+
 export const msalConfig = {
   auth: {
     // Each client stack has its own sign-in app; the release workflow sets these per client.

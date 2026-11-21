@@ -12,6 +12,8 @@ import Analytics from "./pages/Analytics.jsx";
 import Properties from "./pages/Properties.jsx";
 import Manage from "./pages/Manage.jsx";
 import Accounting from "./pages/Accounting.jsx";
+import Admin from "./pages/Admin.jsx";
+import { ADMIN_ENABLED } from "./config.js";
 import "./styles.css";
 
 const msalInstance = new PublicClientApplication(msalConfig);
@@ -64,6 +66,7 @@ async function start() {
                 <Route path="properties" element={<Properties />} />
                 <Route path="manage" element={<Manage />} />
                 <Route path="accounting" element={<Accounting />} />
+                {ADMIN_ENABLED && <Route path="admin" element={<Admin />} />}
                 {Object.entries(legacyPages).map(([from, to]) => (
                   <Route key={from} path={from} element={<LegacyRedirect to={to[0]} lang={to[1]} />} />
                 ))}

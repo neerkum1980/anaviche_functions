@@ -48,6 +48,7 @@ export const common = {
       analytics: "Analysen",
       manage: "Verwalten",
       accounting: "Buchhaltung",
+      admin: "Admin",
     },
     switchTo: "EN",
     auth: {
@@ -67,6 +68,7 @@ export const common = {
       analytics: "Analytics",
       manage: "Manage",
       accounting: "Accounting",
+      admin: "Admin",
     },
     switchTo: "DE",
     auth: {

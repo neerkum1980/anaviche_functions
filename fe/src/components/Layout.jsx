@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { AuthBar } from "../auth.jsx";
+import { ADMIN_ENABLED } from "../config.js";
 import { common, useLang, useText } from "../i18n.jsx";
 import { images } from "../images.js";
 
@@ -25,6 +26,7 @@ export function Nav() {
       {/* Full page load, so Cloudflare Access (which protects this page in prod) sees the request. */}
       <NavLink to="/manage" reloadDocument>{t.nav.manage}</NavLink>
       <NavLink to="/accounting">{t.nav.accounting}</NavLink>
+      {ADMIN_ENABLED && <NavLink to="/admin">{t.nav.admin}</NavLink>}
       <div className="lang-switch">
         <button type="button" onClick={() => setLang(lang === "de" ? "en" : "de")}>{t.switchTo}</button>
       </div>
