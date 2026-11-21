@@ -1,0 +1,40 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Deploys to the test Static Web App. Production (anaviche.ch) is a storage static
+# website; deploy it with scripts/deploy-prod.sh.
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # The test site runs without login.
+          VITE_AUTH_DISABLED: true
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_TOKEN_TEST }}
+          action: upload
+          app_location: dist
+          skip_app_build: true
