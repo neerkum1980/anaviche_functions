@@ -1,0 +1,14 @@
+{
+  "client": "neerajkumar",
+  "clientName": "Neeraj Kumar",
+  "resourceGroup": "rg-anaviche-neerajkumar",
+  "functionApp": "anaviche-neerajkumar-jhd23",
+  "apiBase": "https://anaviche-neerajkumar-jhd23.azurewebsites.net/api/gateway",
+  "staticWebApp": "swa-anaviche-neerajkumar",
+  "frontendUrl": "https://delightful-sky-0a5ab5103.8.azurestaticapps.net",
+  "tenantId": "9636baf2-1763-480c-8bb3-5689803dbf04",
+  "apiAppId": "52e4da0e-e73e-456f-9792-99670f163b1e",
+  "apiScope": "api://52e4da0e-e73e-456f-9792-99670f163b1e/access_as_user",
+  "webAppId": "f7e15785-f89f-43d8-b9f3-28c068caa1f8",
+  "usersGroup": "anaviche-neerajkumar-users"
+}

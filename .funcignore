@@ -8,3 +8,5 @@ test
 .venv
 docs
 fe
+infra
+clients
