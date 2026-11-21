@@ -71,8 +71,13 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Install dependencies into the package
-        run: pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+      # functions-action deletes .funcignore'd files from the folder it packages, so the
+      # package is staged in a copy; the checkout keeps .github/scripts and fe/.
+      - name: Stage the package with its dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/package"
+          rsync -a --exclude .git --exclude fe ./ "$RUNNER_TEMP/package/"
+          pip install -r requirements.txt --target="$RUNNER_TEMP/package/.python_packages/lib/site-packages"
 
       - uses: azure/login@v3
         with:
@@ -84,7 +89,7 @@ jobs:
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ env.TEST_APP }}
-          package: .
+          package: ${{ runner.temp }}/package
           respect-funcignore: true
           scm-do-build-during-deployment: false
           enable-oryx-build: false
