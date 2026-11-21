@@ -26,11 +26,11 @@ You are a coding agent working in `anaviche-functions`, an Azure Functions app w
 - Match the surrounding style: plain functions, module-level constants in UPPER_CASE, `logging` for diagnostics, and no new frameworks.
 - If you add a dependency, add it to `requirements.txt`.
 - When you change a route or method list in `function.json`, check whether `gateway` callers or other functions depend on it.
-- `mcp_server/server.py` wraps every endpoint as an MCP tool. When you add or change an endpoint's route, methods or parameters, update the matching tool and the table in `mcp_server/README.md`. It is also served from the Function App by the `McpServer` function (`/api/mcp`), which imports `build_server(hosted=True)`, so tool changes deploy with the app. `mcp_server/.venv` is only for running it locally.
+- `mcp_server/server.py` wraps every endpoint as an MCP tool. When you add or change an endpoint's route, methods or parameters, update the matching tool and the table in `mcp_server/README.md`. It is also served from the Function App by the `McpServer` function (`/api/mcp`), which imports `build_server(hosted=True)`, so tool changes deploy with the app. Locally it runs from the project `.venv`.
 
 ## Verifying changes
 
-- Byte-compile what you touched: `python -m py_compile <file>`. Use the project venv (`.venv314/bin/python` or `.venv312/bin/python`, whichever exists and has `azure-functions` installed).
+- Byte-compile what you touched: `python -m py_compile <file>`. Use the project venv, `.venv/bin/python` (Python 3.12, matching Azure). Recreate it with `python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt` if it is missing.
 - If Azure Functions Core Tools (`func`) and Azurite are available, run `func start` and exercise the endpoint with `curl http://localhost:7071/api/<route>`. If they are not available, say so rather than claiming the endpoint was tested.
 - Do not run scripts in `scripts/` against real storage, and do not deploy (`func azure functionapp publish`), unless the user explicitly asks you to.
 

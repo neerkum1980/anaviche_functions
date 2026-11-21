@@ -29,12 +29,14 @@ It runs in two modes:
 
 ## Setup
 
+The server uses the project's own virtual environment, since the Function App's `requirements.txt` already includes `mcp` and `httpx`:
+
 ```sh
-python3.12 -m venv mcp_server/.venv
-mcp_server/.venv/bin/pip install -r mcp_server/requirements.txt
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
 ```
 
-This venv is only for running the server locally. The hosted version uses the Function App's own `requirements.txt`, which also lists `mcp` and `httpx`.
+`mcp_server/requirements.txt` lists just the server's own dependencies, for running it outside this repo.
 
 ## Configuration
 
@@ -66,7 +68,7 @@ The endpoint is stateless and returns plain JSON. The function key protects it l
 {
   "mcpServers": {
     "anaviche": {
-      "command": "/path/to/anaviche-functions/mcp_server/.venv/bin/python",
+      "command": "/path/to/anaviche-functions/.venv/bin/python",
       "args": ["/path/to/anaviche-functions/mcp_server/server.py"],
       "env": { "ANAVICHE_BASE_URL": "https://<app>.azurewebsites.net/api", "ANAVICHE_FUNCTION_KEY": "<key>" }
     }

@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "anaviche": {
-      "command": "mcp_server/.venv/bin/python",
+      "command": ".venv/bin/python",
       "args": ["mcp_server/server.py"],
       "env": {
         "ANAVICHE_BASE_URL": "${ANAVICHE_BASE_URL:-http://localhost:7071/api}",
